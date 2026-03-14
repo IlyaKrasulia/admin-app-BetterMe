@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { authApi } from '@api/auth.api'
 import { useAuthStore } from '../store/auth.store'
 import toast from 'react-hot-toast'
+import type { AxiosError } from 'axios'
 import type { LoginRequest, MeResponse } from '@shared/types/auth.types'
 
 // ─── Mock user for demo / offline mode ───────────────────────────────────────
@@ -62,10 +63,11 @@ export function useLogin() {
       toast.success(`Welcome back, ${user.userName}!`)
       navigate({ to: '/dashboard' })
     },
-    onError: (error: { response?: { status?: number } }) => {
-      if (error?.response?.status === 401) {
+    onError: (error: AxiosError<{ message?: string }>) => {
+      const status = error.response?.status
+      if (status === 401) {
         toast.error('Invalid email or password.')
-      } else if (error?.response?.status === 423) {
+      } else if (status === 423) {
         toast.error('Account is temporarily locked. Try again in 5 minutes.')
       } else {
         toast.error('Login failed. Please try again.')

@@ -11,6 +11,7 @@ import { useDagStore } from '@features/dag-editor/store/dag.store'
 import { useSurveysStore } from '@features/surveys/store/surveys.store'
 import type { Node, Edge } from 'reactflow'
 import type { DagNodeData } from '@shared/types/dag.types'
+import type { Survey } from '@shared/types/dag.types'
 import toast from 'react-hot-toast'
 
 /* ── Height chain explanation ───────────────────────────────────────────
@@ -50,7 +51,9 @@ export function DagEditorPage() {
         survey.edges as Edge[]
       )
     }
-  }, [survey?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    // loadSurvey is a stable store action; only re-run when the survey id changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [survey?.id])
 
   if (!survey) {
     return (
@@ -64,7 +67,10 @@ export function DagEditorPage() {
   }
 
   const handleSave = () => {
-    updateSurvey(surveyId, { nodes: nodes as never, edges: edges as never })
+    updateSurvey(surveyId, {
+      nodes: nodes as unknown as Survey['nodes'],
+      edges: edges as unknown as Survey['edges'],
+    })
     markSaved()
     toast.success('Survey saved!')
   }
