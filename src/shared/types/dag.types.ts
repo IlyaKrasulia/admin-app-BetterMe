@@ -1,9 +1,9 @@
 // ─── DAG Node Types ───────────────────────────────────────────────────────────
 
 export enum NodeType {
-  Question = 'question',
-  Info = 'info',
-  Offer = 'offer',
+  Question = 'Question',
+  Info = 'Info',
+  Offer = 'Offer',
 }
 
 export enum AttributeKey {

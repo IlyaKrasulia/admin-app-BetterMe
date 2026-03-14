@@ -69,7 +69,7 @@ export function flowNodeToNode(dto: FlowNodeDto): Node<DagNodeData> {
     default: {
       const d: OfferNodeData = {
         type: NodeType.Offer,
-        headline: dto.title,
+        questionText: dto.title,
         description: dto.description ?? "",
         ctaText: "Get Started",
         price: undefined,

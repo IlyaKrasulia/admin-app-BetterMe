@@ -45,6 +45,8 @@ function QuestionProperties({ node }: { node: Node<DagNodeData> }) {
       max?: number;
     };
 
+  console.log(data, ' => dataid');
+
   const addOption = () => {
     const newOption: AnswerOption = {
       id: crypto.randomUUID(),
