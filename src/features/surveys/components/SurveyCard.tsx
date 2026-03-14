@@ -4,52 +4,34 @@ import {
   Edit2,
   Trash2,
   Copy,
-  BarChart2,
   Clock,
   CheckCircle,
   Circle,
+  Globe,
+  GlobeLock,
 } from "lucide-react";
 import { Badge } from "@shared/ui/Badge";
 import { Button } from "@shared/ui/Button";
-import type { Survey } from "@shared/types/dag.types";
-import { SurveyStatus } from "@shared/types/dag.types";
+import type { FlowSummary } from "@shared/types/api.types";
 import { formatDate } from "@shared/utils/format";
 
 interface SurveyCardProps {
-  survey: Survey;
+  flow: FlowSummary;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onCopyLink: (id: string) => void;
+  onPublish?: (id: string) => void;
+  onUnpublish?: (id: string) => void;
   index: number;
 }
 
-function statusVariant(status: SurveyStatus) {
-  switch (status) {
-    case SurveyStatus.Published:
-      return "success";
-    case SurveyStatus.Draft:
-      return "neutral";
-    case SurveyStatus.Archived:
-      return "warning";
-  }
-}
-
-function statusIcon(status: SurveyStatus) {
-  switch (status) {
-    case SurveyStatus.Published:
-      return <CheckCircle size={11} />;
-    case SurveyStatus.Draft:
-      return <Circle size={11} />;
-    case SurveyStatus.Archived:
-      return <Clock size={11} />;
-  }
-}
-
 export function SurveyCard({
-  survey,
+  flow,
   onEdit,
   onDelete,
   onCopyLink,
+  onPublish,
+  onUnpublish,
   index,
 }: SurveyCardProps) {
   return (
@@ -60,25 +42,21 @@ export function SurveyCard({
     >
       <Header>
         <TitleBlock>
-          <Title title={survey.title}>{survey.title}</Title>
-          {survey.description && (
-            <Description>{survey.description}</Description>
+          <Title title={flow.name}>{flow.name}</Title>
+          {flow.description && (
+            <Description>{flow.description}</Description>
           )}
         </TitleBlock>
-        <Badge $variant={statusVariant(survey.status)}>
-          {statusIcon(survey.status)}
-          {survey.status.charAt(0).toUpperCase() + survey.status.slice(1)}
+        <Badge $variant={flow.isPublished ? "success" : "neutral"}>
+          {flow.isPublished ? <CheckCircle size={11} /> : <Circle size={11} />}
+          {flow.isPublished ? "Published" : "Draft"}
         </Badge>
       </Header>
 
       <Meta>
         <MetaItem>
-          <BarChart2 size={13} />
-          {survey.completionCount.toLocaleString()} completions
-        </MetaItem>
-        <MetaItem>
           <Clock size={13} />
-          {formatDate(survey.updatedAt)}
+          {formatDate(flow.updatedAt)}
         </MetaItem>
       </Meta>
 
@@ -87,7 +65,7 @@ export function SurveyCard({
           variant="ghost"
           size="sm"
           icon={<Edit2 size={14} />}
-          onClick={() => onEdit(survey.id)}
+          onClick={() => onEdit(flow.id)}
         >
           Edit
         </Button>
@@ -95,16 +73,35 @@ export function SurveyCard({
           variant="ghost"
           size="sm"
           icon={<Copy size={14} />}
-          onClick={() => onCopyLink(survey.id)}
+          onClick={() => onCopyLink(flow.id)}
         >
           Copy Link
         </Button>
+        {flow.isPublished ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<GlobeLock size={14} />}
+            onClick={() => onUnpublish?.(flow.id)}
+          >
+            Unpublish
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Globe size={14} />}
+            onClick={() => onPublish?.(flow.id)}
+          >
+            Publish
+          </Button>
+        )}
         <Spacer />
         <Button
           variant="ghost"
           size="sm"
           icon={<Trash2 size={14} />}
-          onClick={() => onDelete(survey.id)}
+          onClick={() => onDelete(flow.id)}
           style={{ color: "#EF4444" }}
         >
           Delete

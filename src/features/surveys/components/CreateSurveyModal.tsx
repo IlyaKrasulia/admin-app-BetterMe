@@ -5,8 +5,7 @@ import styled from 'styled-components'
 import { Modal } from '@shared/ui/Modal'
 import { Input } from '@shared/ui/Input'
 import { Button } from '@shared/ui/Button'
-import { useSurveysStore } from '../store/surveys.store'
-import { SurveyStatus } from '@shared/types/dag.types'
+import { useCreateFlow } from '@features/flows/hooks/useFlows'
 import toast from 'react-hot-toast'
 import { useNavigate } from '@tanstack/react-router'
 
@@ -36,7 +35,7 @@ const Footer = styled.div`
 `
 
 export function CreateSurveyModal({ open, onClose }: CreateSurveyModalProps) {
-  const addSurvey = useSurveysStore((s) => s.addSurvey)
+  const { mutate: createFlow, isPending } = useCreateFlow()
   const navigate = useNavigate()
 
   const {
@@ -49,22 +48,20 @@ export function CreateSurveyModal({ open, onClose }: CreateSurveyModalProps) {
   })
 
   const onSubmit = (values: FormValues) => {
-    const id = crypto.randomUUID()
-    addSurvey({
-      id,
-      title: values.title,
-      description: values.description,
-      status: SurveyStatus.Draft,
-      completionCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      nodes: [],
-      edges: [],
-    })
-    toast.success('Survey created!')
-    reset()
-    onClose()
-    navigate({ to: '/editor/$surveyId', params: { surveyId: id } })
+    createFlow(
+      { name: values.title, description: values.description },
+      {
+        onSuccess: (flow) => {
+          toast.success('Survey created!')
+          reset()
+          onClose()
+          navigate({ to: '/editor/$surveyId', params: { surveyId: flow.id } })
+        },
+        onError: () => {
+          toast.error('Failed to create survey. Please try again.')
+        },
+      }
+    )
   }
 
   return (
@@ -87,7 +84,9 @@ export function CreateSurveyModal({ open, onClose }: CreateSurveyModalProps) {
           <Button variant="secondary" type="button" onClick={() => { reset(); onClose() }}>
             Cancel
           </Button>
-          <Button type="submit">Create Survey</Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Creating…' : 'Create Survey'}
+          </Button>
         </Footer>
       </FormBody>
     </Modal>
