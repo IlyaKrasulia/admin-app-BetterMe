@@ -71,35 +71,6 @@ const sizeStyles = {
   `,
 }
 
-const StyledButton = styled(motion.button)<{
-  $variant: Variant
-  $size: Size
-  $fullWidth: boolean
-}>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: ${({ theme }) => theme.typography.weights.medium};
-  transition: all ${({ theme }) => theme.transitions.fast};
-  cursor: pointer;
-  white-space: nowrap;
-  width: ${({ $fullWidth }) => ($fullWidth ? '100%' : 'auto')};
-  position: relative;
-  outline: none;
-
-  &:focus-visible {
-    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.bg}, 0 0 0 4px ${({ theme }) => theme.colors.accent};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  ${({ $variant }) => variantStyles[$variant]}
-  ${({ $size }) => sizeStyles[$size]}
-`
-
 export function Button({
   variant = 'primary',
   size = 'md',
@@ -128,3 +99,33 @@ export function Button({
     </StyledButton>
   )
 }
+
+
+const StyledButton = styled(motion.button)<{
+  $variant: Variant
+  $size: Size
+  $fullWidth: boolean
+}>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: ${({ theme }) => theme.typography.weights.medium};
+  transition: all ${({ theme }) => theme.transitions.fast};
+  cursor: pointer;
+  white-space: nowrap;
+  width: ${({ $fullWidth }) => ($fullWidth ? '100%' : 'auto')};
+  position: relative;
+  outline: none;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.bg}, 0 0 0 4px ${({ theme }) => theme.colors.accent};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  ${({ $variant }) => variantStyles[$variant]}
+  ${({ $size }) => sizeStyles[$size]}
+`

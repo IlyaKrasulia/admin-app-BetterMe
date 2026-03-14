@@ -3,6 +3,26 @@ import { motion } from 'framer-motion'
 import { LoginForm } from '@features/auth/components/LoginForm'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 
+export function LoginPage() {
+  return (
+    <Page>
+      <TopRight>
+        <ThemeSwitcher />
+      </TopRight>
+      <Card
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      >
+        <LogoMark>🌿</LogoMark>
+        <Heading>Welcome back</Heading>
+        <Subheading>Sign in to your Wellness Admin panel</Subheading>
+        <LoginForm />
+      </Card>
+    </Page>
+  )
+}
+
 const Page = styled.div`
   min-height: 100vh;
   display: flex;
@@ -53,23 +73,3 @@ const Subheading = styled.p`
   color: ${({ theme }) => theme.colors.textSecondary};
   margin-bottom: 32px;
 `
-
-export function LoginPage() {
-  return (
-    <Page>
-      <TopRight>
-        <ThemeSwitcher />
-      </TopRight>
-      <Card
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-      >
-        <LogoMark>🌿</LogoMark>
-        <Heading>Welcome back</Heading>
-        <Subheading>Sign in to your Wellness Admin panel</Subheading>
-        <LoginForm />
-      </Card>
-    </Page>
-  )
-}

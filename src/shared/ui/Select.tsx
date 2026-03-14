@@ -8,6 +8,34 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   options: { value: string; label: string }[]
 }
 
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+  ({ label, error, options, id, ...props }, ref) => {
+    const selectId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
+
+    return (
+      <Wrapper>
+        {label && <Label htmlFor={selectId}>{label}</Label>}
+        <SelectWrapper>
+          <StyledSelect ref={ref} id={selectId} $error={!!error} {...props}>
+            {options.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </StyledSelect>
+          <Arrow>
+            <ChevronDown size={16} />
+          </Arrow>
+        </SelectWrapper>
+        {error && <ErrorText>{error}</ErrorText>}
+      </Wrapper>
+    )
+  }
+)
+
+Select.displayName = 'Select'
+
+
 const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
@@ -61,29 +89,3 @@ const ErrorText = styled.span`
   color: ${({ theme }) => theme.colors.error};
 `
 
-export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, options, id, ...props }, ref) => {
-    const selectId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
-
-    return (
-      <Wrapper>
-        {label && <Label htmlFor={selectId}>{label}</Label>}
-        <SelectWrapper>
-          <StyledSelect ref={ref} id={selectId} $error={!!error} {...props}>
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </StyledSelect>
-          <Arrow>
-            <ChevronDown size={16} />
-          </Arrow>
-        </SelectWrapper>
-        {error && <ErrorText>{error}</ErrorText>}
-      </Wrapper>
-    )
-  }
-)
-
-Select.displayName = 'Select'

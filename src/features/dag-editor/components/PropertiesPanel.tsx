@@ -22,59 +22,6 @@ import {
   Operator,
 } from "@shared/types/dag.types";
 
-const Panel = styled(motion.aside)`
-  width: 280px;
-  background: ${({ theme }) => theme.colors.bgSurface};
-  border-left: 1px solid ${({ theme }) => theme.colors.border};
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  flex-shrink: 0;
-`;
-
-const PanelHeader = styled.div`
-  padding: 16px 20px;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
-
-const PanelTitle = styled.h3`
-  font-size: ${({ theme }) => theme.typography.sizes.md};
-  font-weight: ${({ theme }) => theme.typography.weights.semibold};
-  color: ${({ theme }) => theme.colors.textPrimary};
-`;
-
-const PanelBody = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-`;
-
-const FieldGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-`;
-
-const GroupLabel = styled.p`
-  font-size: ${({ theme }) => theme.typography.sizes.xs};
-  font-weight: ${({ theme }) => theme.typography.weights.semibold};
-  color: ${({ theme }) => theme.colors.textTertiary};
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-`;
-
-const OptionRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
 const attributeOptions = Object.values(AttributeKey).map((v) => ({
   value: v,
   label: v.replace(/_/g, " "),
@@ -437,3 +384,58 @@ export function PropertiesPanel() {
     </AnimatePresence>
   );
 }
+
+// ───────────────────────────────────────────────────────────────────────────────── Styles ───────────────────────────────────────────────────────────────────
+
+const Panel = styled(motion.aside)`
+  width: 280px;
+  background: ${({ theme }) => theme.colors.bgSurface};
+  border-left: 1px solid ${({ theme }) => theme.colors.border};
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+`;
+
+const PanelHeader = styled.div`
+  padding: 16px 20px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const PanelTitle = styled.h3`
+  font-size: ${({ theme }) => theme.typography.sizes.md};
+  font-weight: ${({ theme }) => theme.typography.weights.semibold};
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+const PanelBody = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+`;
+
+const FieldGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const GroupLabel = styled.p`
+  font-size: ${({ theme }) => theme.typography.sizes.xs};
+  font-weight: ${({ theme }) => theme.typography.weights.semibold};
+  color: ${({ theme }) => theme.colors.textTertiary};
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+`;
+
+const OptionRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;

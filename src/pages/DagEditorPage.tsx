@@ -76,7 +76,7 @@ export function DagEditorPage() {
   }
 
   const handleTest = () => {
-    toast.success('Preview mode coming soon!')
+    navigate({ to: `/survey/${surveyId}` })
   }
 
   return (

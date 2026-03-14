@@ -12,47 +12,6 @@ interface ModalProps {
   width?: number
 }
 
-const Overlay = styled(motion.div)`
-  position: fixed;
-  inset: 0;
-  background: ${({ theme }) => theme.colors.bgOverlay};
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  backdrop-filter: blur(4px);
-`
-
-const Dialog = styled(motion.div)`
-  background: ${({ theme }) => theme.colors.bgSurface};
-  border-radius: ${({ theme }) => theme.radii.xl};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  box-shadow: ${({ theme }) => theme.shadows.xl};
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  position: relative;
-`
-
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-`
-
-const Title = styled.h2`
-  font-size: ${({ theme }) => theme.typography.sizes.lg};
-  font-weight: ${({ theme }) => theme.typography.weights.semibold};
-  color: ${({ theme }) => theme.colors.textPrimary};
-`
-
-const Body = styled.div`
-  padding: 24px;
-`
-
 export function Modal({ open, onClose, title, children, width = 480 }: ModalProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -103,3 +62,45 @@ export function Modal({ open, onClose, title, children, width = 480 }: ModalProp
     </AnimatePresence>
   )
 }
+
+
+const Overlay = styled(motion.div)`
+  position: fixed;
+  inset: 0;
+  background: ${({ theme }) => theme.colors.bgOverlay};
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(4px);
+`
+
+const Dialog = styled(motion.div)`
+  background: ${({ theme }) => theme.colors.bgSurface};
+  border-radius: ${({ theme }) => theme.radii.xl};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  box-shadow: ${({ theme }) => theme.shadows.xl};
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+`
+
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+`
+
+const Title = styled.h2`
+  font-size: ${({ theme }) => theme.typography.sizes.lg};
+  font-weight: ${({ theme }) => theme.typography.weights.semibold};
+  color: ${({ theme }) => theme.colors.textPrimary};
+`
+
+const Body = styled.div`
+  padding: 24px;
+`

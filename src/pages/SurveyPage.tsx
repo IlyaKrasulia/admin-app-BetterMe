@@ -18,160 +18,6 @@ import { OfferStep } from '@features/survey-client/components/OfferStep'
 import { Button } from '@shared/ui/Button'
 import { Spinner } from '@shared/ui/Spinner'
 
-// ─── Global scroll reset for the survey page ─────────────────────────────────
-const SurveyPageGlobal = createGlobalStyle`
-  body { overflow-y: auto; }
-`
-
-// ─── Layout ───────────────────────────────────────────────────────────────────
-
-const PageShell = styled.div`
-  min-height: 100vh;
-  background: ${({ theme }) => theme.colors.bg};
-  display: flex;
-  flex-direction: column;
-`
-
-const TopBar = styled.header`
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: ${({ theme }) => theme.colors.bg};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  padding: 0 24px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-`
-
-const BrandName = styled.span`
-  font-size: ${({ theme }) => theme.typography.sizes.md};
-  font-weight: ${({ theme }) => theme.typography.weights.semibold};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  flex: 1;
-  text-align: center;
-`
-
-const BackBtn = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: ${({ theme }) => theme.radii.sm};
-  border: none;
-  background: transparent;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  cursor: pointer;
-  transition: background ${({ theme }) => theme.transitions.fast};
-
-  &:hover {
-    background: ${({ theme }) => theme.colors.bgElevated};
-    color: ${({ theme }) => theme.colors.textPrimary};
-  }
-
-  &:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-`
-
-// ─── Progress bar ─────────────────────────────────────────────────────────────
-
-const ProgressTrack = styled.div`
-  height: 3px;
-  background: ${({ theme }) => theme.colors.bgElevated};
-  width: 100%;
-`
-
-const ProgressFill = styled(motion.div)`
-  height: 100%;
-  background: ${({ theme }) => theme.colors.accent};
-  border-radius: 0 2px 2px 0;
-`
-
-// ─── Content area ─────────────────────────────────────────────────────────────
-
-const ContentArea = styled.main`
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 48px 24px 80px;
-`
-
-const Card = styled(motion.div)`
-  background: ${({ theme }) => theme.colors.bgSurface};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.radii.xl};
-  padding: 40px 40px;
-  width: 100%;
-  max-width: 600px;
-  box-shadow: ${({ theme }) => theme.shadows.md};
-
-  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
-    padding: 28px 20px;
-  }
-`
-
-// ─── Error / Not-found states ─────────────────────────────────────────────────
-
-const CenterBlock = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 48px 24px;
-  text-align: center;
-`
-
-const BigEmoji = styled.div`
-  font-size: 56px;
-`
-
-const StateTitle = styled.h1`
-  font-size: ${({ theme }) => theme.typography.sizes.xl};
-  font-weight: ${({ theme }) => theme.typography.weights.bold};
-  color: ${({ theme }) => theme.colors.textPrimary};
-`
-
-const StateBody = styled.p`
-  font-size: ${({ theme }) => theme.typography.sizes.md};
-  color: ${({ theme }) => theme.colors.textSecondary};
-  max-width: 360px;
-`
-
-// ─── Completion screen ────────────────────────────────────────────────────────
-
-const CompletionWrapper = styled(motion.div)`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  text-align: center;
-  padding: 16px 0;
-`
-
-const CompletionIcon = styled(motion.div)`
-  color: ${({ theme }) => theme.colors.success};
-`
-
-const CompletionTitle = styled.h2`
-  font-size: ${({ theme }) => theme.typography.sizes.xxl};
-  font-weight: ${({ theme }) => theme.typography.weights.bold};
-  color: ${({ theme }) => theme.colors.textPrimary};
-`
-
-const CompletionBody = styled.p`
-  font-size: ${({ theme }) => theme.typography.sizes.md};
-  color: ${({ theme }) => theme.colors.textSecondary};
-  max-width: 400px;
-  line-height: ${({ theme }) => theme.typography.lineHeights.relaxed};
-`
-
 // ─── Card animation variants ──────────────────────────────────────────────────
 
 const cardVariants = {
@@ -444,3 +290,159 @@ export function SurveyPage() {
     </PageShell>
   )
 }
+
+
+
+// ─── Global scroll reset for the survey page ─────────────────────────────────
+const SurveyPageGlobal = createGlobalStyle`
+  body { overflow-y: auto; }
+`
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+
+const PageShell = styled.div`
+  min-height: 100vh;
+  background: ${({ theme }) => theme.colors.bg};
+  display: flex;
+  flex-direction: column;
+`
+
+const TopBar = styled.header`
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: ${({ theme }) => theme.colors.bg};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`
+
+const BrandName = styled.span`
+  font-size: ${({ theme }) => theme.typography.sizes.md};
+  font-weight: ${({ theme }) => theme.typography.weights.semibold};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  flex: 1;
+  text-align: center;
+`
+
+const BackBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  transition: background ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.bgElevated};
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+`
+
+// ─── Progress bar ─────────────────────────────────────────────────────────────
+
+const ProgressTrack = styled.div`
+  height: 3px;
+  background: ${({ theme }) => theme.colors.bgElevated};
+  width: 100%;
+`
+
+const ProgressFill = styled(motion.div)`
+  height: 100%;
+  background: ${({ theme }) => theme.colors.accent};
+  border-radius: 0 2px 2px 0;
+`
+
+// ─── Content area ─────────────────────────────────────────────────────────────
+
+const ContentArea = styled.main`
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 24px 80px;
+`
+
+const Card = styled(motion.div)`
+  background: ${({ theme }) => theme.colors.bgSurface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.xl};
+  padding: 40px 40px;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: ${({ theme }) => theme.shadows.md};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    padding: 28px 20px;
+  }
+`
+
+// ─── Error / Not-found states ─────────────────────────────────────────────────
+
+const CenterBlock = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px 24px;
+  text-align: center;
+`
+
+const BigEmoji = styled.div`
+  font-size: 56px;
+`
+
+const StateTitle = styled.h1`
+  font-size: ${({ theme }) => theme.typography.sizes.xl};
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+  color: ${({ theme }) => theme.colors.textPrimary};
+`
+
+const StateBody = styled.p`
+  font-size: ${({ theme }) => theme.typography.sizes.md};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  max-width: 360px;
+`
+
+// ─── Completion screen ────────────────────────────────────────────────────────
+
+const CompletionWrapper = styled(motion.div)`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+  padding: 16px 0;
+`
+
+const CompletionIcon = styled(motion.div)`
+  color: ${({ theme }) => theme.colors.success};
+`
+
+const CompletionTitle = styled.h2`
+  font-size: ${({ theme }) => theme.typography.sizes.xxl};
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+  color: ${({ theme }) => theme.colors.textPrimary};
+`
+
+const CompletionBody = styled.p`
+  font-size: ${({ theme }) => theme.typography.sizes.md};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  max-width: 400px;
+  line-height: ${({ theme }) => theme.typography.lineHeights.relaxed};
+`
