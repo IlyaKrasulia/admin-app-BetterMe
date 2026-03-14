@@ -11,12 +11,6 @@ export const apiClient = axios.create({
   },
 })
 
-// Request interceptor
-apiClient.interceptors.request.use(
-  (config) => config,
-  (error: AxiosError) => Promise.reject(error)
-)
-
 // Response interceptor – centralized error handling
 apiClient.interceptors.response.use(
   (response) => response,
