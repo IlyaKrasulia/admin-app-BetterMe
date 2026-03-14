@@ -130,6 +130,10 @@ function nodeTypeToApiType(type: NodeType): 'question' | 'info_page' | 'offer' {
 
 /**
  * Build a `CreateNodeRequest` payload from a ReactFlow `Node<DagNodeData>`.
+ *
+ * Note: answer options for question nodes are managed via the separate options
+ * API (`POST /api/admin/nodes/{nodeId}/options`) and are not part of this
+ * request.  Add/remove/reorder options using `useCreateOption` / `useDeleteOption`.
  */
 export function nodeToCreateRequest(node: Node<DagNodeData>): CreateNodeRequest {
   const { data, position } = node
@@ -164,6 +168,9 @@ export function nodeToCreateRequest(node: Node<DagNodeData>): CreateNodeRequest 
 
 /**
  * Build an `UpdateNodeRequest` payload from a ReactFlow `Node<DagNodeData>`.
+ *
+ * Note: answer options are a separate resource and are not updated here.
+ * Use `useCreateOption` / `useUpdateOption` / `useDeleteOption` for that.
  */
 export function nodeToUpdateRequest(node: Node<DagNodeData>): UpdateNodeRequest {
   const { data, position } = node

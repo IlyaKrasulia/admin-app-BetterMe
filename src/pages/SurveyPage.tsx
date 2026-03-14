@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import styled, { createGlobalStyle } from 'styled-components'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate } from '@tanstack/react-router'
@@ -93,12 +93,16 @@ export function SurveyPage() {
   const [canGoBack, setCanGoBack] = useState(false)
 
   // ─── Start session once flow data is confirmed to exist ───────────────────
+  const hasStartedRef = useRef(false)
   useEffect(() => {
     if (!surveyId || isFlowLoading) return
     if (isFlowError || !contentFlow) {
       setPageState('error')
       return
     }
+    // Guard against React strict-mode double invocation and fast re-renders
+    if (hasStartedRef.current) return
+    hasStartedRef.current = true
 
     startSession({ flowId: surveyId })
       .then((resp) => {
