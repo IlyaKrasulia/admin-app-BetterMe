@@ -1,17 +1,18 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import styled, { createGlobalStyle } from 'styled-components'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, CheckCircle2 } from 'lucide-react'
-import { useSurveysStore } from '@features/surveys/store/surveys.store'
-import { NodeType, SurveyStatus } from '@shared/types/dag.types'
-import type { DagNode } from '@shared/types/dag.types'
+import { NodeType, AttributeKey, AnswerType } from '@shared/types/dag.types'
+import type { QuestionNodeData, InfoNodeData, OfferNodeData } from '@shared/types/dag.types'
+import type { SessionCurrentNode, SessionOfferItem } from '@shared/types/api.types'
+import { useContentFlow } from '@features/content/hooks/useContent'
 import {
-  findStartNode,
-  getNextNodeId,
-  estimateProgress,
-  type AnswerMap,
-} from '@features/survey-client/utils/dag-navigator'
+  useStartSession,
+  useSubmitAnswer,
+  useGoBack,
+  useRecordConversion,
+} from '@features/quiz/hooks/useQuiz'
 import { QuestionStep } from '@features/survey-client/components/QuestionStep'
 import { InfoStep } from '@features/survey-client/components/InfoStep'
 import { OfferStep } from '@features/survey-client/components/OfferStep'
@@ -26,110 +27,204 @@ const cardVariants = {
   exit: { opacity: 0, x: -40 },
 }
 
+// ─── Adapter: SessionCurrentNode → step component data ───────────────────────
+
+function sessionNodeToQuestion(node: SessionCurrentNode): QuestionNodeData {
+  return {
+    type: NodeType.Question,
+    questionText: node.title ?? '',
+    attribute: (node.attributeKey as AttributeKey) ?? AttributeKey.Goal,
+    answerType: AnswerType.SingleChoice,
+    options: (node.options ?? []).map((o) => ({
+      id: o.id,
+      label: o.label,
+      value: o.value,
+    })),
+  }
+}
+
+function sessionNodeToInfo(node: SessionCurrentNode): InfoNodeData {
+  return {
+    type: NodeType.Info,
+    title: node.title ?? '',
+    body: node.description ?? '',
+    imageUrl: node.mediaUrl ?? undefined,
+  }
+}
+
+function sessionNodeToOffer(
+  node: SessionCurrentNode,
+  offers: SessionOfferItem[]
+): OfferNodeData {
+  const primary = offers.find((o) => o.isPrimary)?.offer ?? offers[0]?.offer
+  return {
+    type: NodeType.Offer,
+    headline: node.title ?? (primary?.name ?? 'Special Offer'),
+    description: node.description ?? (primary?.description ?? ''),
+    ctaText: 'Get Started',
+    price: primary?.price,
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-type PageState = 'survey' | 'completed'
+type PageState = 'loading' | 'survey' | 'completed' | 'error'
 
 export function SurveyPage() {
   const navigate = useNavigate()
-
-  // The route exposes `surveyId` via search params ─ handled by TanStack Router.
-  // We read it from the URL directly for maximum compatibility.
   const params = useParams({ strict: false }) as { surveyId?: string }
   const surveyId = params.surveyId ?? ''
 
-  const getSurveyById = useSurveysStore((s) => s.getSurveyById)
-  const updateSurvey = useSurveysStore((s) => s.updateSurvey)
+  // ─── API hooks ────────────────────────────────────────────────────────────
+  const { data: contentFlow, isLoading: isFlowLoading, isError: isFlowError } =
+    useContentFlow(surveyId)
+  const { mutateAsync: startSession } = useStartSession()
+  const { mutateAsync: submitAnswer } = useSubmitAnswer()
+  const { mutateAsync: goBackApi } = useGoBack()
+  const { mutateAsync: recordConversion } = useRecordConversion()
 
-  const survey = getSurveyById(surveyId)
-
-  // ─── State ─────────────────────────────────────────────────────────────────
-  const [currentNode, setCurrentNode] = useState<DagNode | null>(null)
-  const [history, setHistory] = useState<DagNode[]>([])
-  const [answers, setAnswers] = useState<AnswerMap>(new Map())
-  const [pageState, setPageState] = useState<PageState>('survey')
+  // ─── State ────────────────────────────────────────────────────────────────
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [currentNode, setCurrentNode] = useState<SessionCurrentNode | null>(null)
+  const [currentOffers, setCurrentOffers] = useState<SessionOfferItem[]>([])
+  const [progressPct, setProgressPct] = useState(0)
+  const [pageState, setPageState] = useState<PageState>('loading')
   const [direction, setDirection] = useState<1 | -1>(1)
+  const [canGoBack, setCanGoBack] = useState(false)
 
-  // Initialise the survey at the start node
+  // ─── Start session once flow data is confirmed to exist ───────────────────
+  const hasStartedRef = useRef(false)
   useEffect(() => {
-    if (!survey) return
-    const start = findStartNode(survey)
-    if (start) setCurrentNode(start)
-  }, [survey])
+    if (!surveyId || isFlowLoading) return
+    if (isFlowError || !contentFlow) {
+      setPageState('error')
+      return
+    }
+    // Guard against React strict-mode double invocation and fast re-renders
+    if (hasStartedRef.current) return
+    hasStartedRef.current = true
 
-  // ─── Navigation helpers ────────────────────────────────────────────────────
+    startSession({ flowId: surveyId })
+      .then((resp) => {
+        setSessionId(resp.sessionId)
+        setCurrentNode(resp.currentNode)
+        setProgressPct(0)
+        setPageState('survey')
+        setCanGoBack(false)
+      })
+      .catch(() => setPageState('error'))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surveyId, isFlowLoading, isFlowError])
 
-  const advanceToNode = useCallback(
-    (nodeId: string) => {
-      if (!survey) return
-      const next = survey.nodes.find((n) => n.id === nodeId) ?? null
-      if (!next) return
-      setDirection(1)
-      setHistory((h) => (currentNode ? [...h, currentNode] : h))
-      setCurrentNode(next)
-    },
-    [survey, currentNode]
-  )
-
-  const goBack = useCallback(() => {
-    if (history.length === 0) return
-    setDirection(-1)
-    const prev = history[history.length - 1]
-    setHistory((h) => h.slice(0, -1))
-    setCurrentNode(prev)
-  }, [history])
-
-  // ─── Answer handlers ───────────────────────────────────────────────────────
+  // ─── Answer handler ────────────────────────────────────────────────────────
 
   const handleAnswer = useCallback(
-    (value: string | string[]) => {
-      if (!survey || !currentNode) return
-
-      // Store the answer keyed by the node's attribute (for question nodes)
-      const newAnswers = new Map(answers)
-      if (currentNode.data.type === NodeType.Question) {
-        newAnswers.set(currentNode.data.attribute, value)
-      }
-      setAnswers(newAnswers)
-
-      // Navigate to the next node
-      const nextId = getNextNodeId(survey, currentNode.id, newAnswers)
-      if (nextId) {
-        advanceToNode(nextId)
-      } else {
-        // Terminal node — complete the survey
-        handleComplete()
+    async (value: string | string[]) => {
+      if (!sessionId || !currentNode) return
+      try {
+        const resp = await submitAnswer({
+          sessionId,
+          data: {
+            nodeId: currentNode.id,
+            value: Array.isArray(value) ? value.join(',') : value,
+          },
+        })
+        setDirection(1)
+        setCurrentNode(resp.currentNode)
+        setCurrentOffers(resp.offers ?? [])
+        const total = contentFlow?.nodes.length ?? 1
+        setProgressPct(
+          resp.status === 'completed'
+            ? 100
+            : Math.min(Math.round((resp.progress.answeredCount / total) * 100), 95)
+        )
+        setCanGoBack(true)
+        if (resp.status === 'completed') {
+          setPageState('completed')
+        }
+      } catch {
+        // Non-fatal: keep the current node displayed
       }
     },
-    [survey, currentNode, answers, advanceToNode]
+    [sessionId, currentNode, submitAnswer, contentFlow]
   )
 
-  const handleInfoContinue = useCallback(() => {
-    if (!survey || !currentNode) return
-    const nextId = getNextNodeId(survey, currentNode.id, answers)
-    if (nextId) {
-      advanceToNode(nextId)
-    } else {
-      handleComplete()
-    }
-  }, [survey, currentNode, answers, advanceToNode])
+  // ─── Info continue ─────────────────────────────────────────────────────────
 
-  const handleOfferAccept = useCallback(() => {
-    handleComplete()
-  }, [])
-
-  function handleComplete() {
-    if (survey) {
-      updateSurvey(survey.id, {
-        completionCount: survey.completionCount + 1,
+  const handleInfoContinue = useCallback(async () => {
+    if (!sessionId || !currentNode) return
+    try {
+      const resp = await submitAnswer({
+        sessionId,
+        data: { nodeId: currentNode.id, value: '' },
       })
+      setDirection(1)
+      setCurrentNode(resp.currentNode)
+      setCurrentOffers(resp.offers ?? [])
+      const total = contentFlow?.nodes.length ?? 1
+      setProgressPct(
+        resp.status === 'completed'
+          ? 100
+          : Math.min(Math.round((resp.progress.answeredCount / total) * 100), 95)
+      )
+      setCanGoBack(true)
+      if (resp.status === 'completed') {
+        setPageState('completed')
+      }
+    } catch {
+      // Non-fatal
     }
-    setPageState('completed')
+  }, [sessionId, currentNode, submitAnswer, contentFlow])
+
+  // ─── Go back ───────────────────────────────────────────────────────────────
+
+  const handleGoBack = useCallback(async () => {
+    if (!sessionId || !canGoBack) return
+    try {
+      const resp = await goBackApi(sessionId)
+      setDirection(-1)
+      setCurrentNode(resp.currentNode)
+      setCurrentOffers([])
+      const total = contentFlow?.nodes.length ?? 1
+      setProgressPct(
+        Math.min(Math.round((resp.progress.answeredCount / total) * 100), 95)
+      )
+      setCanGoBack(resp.progress.answeredCount > 0)
+    } catch {
+      // Non-fatal
+    }
+  }, [sessionId, canGoBack, goBackApi, contentFlow])
+
+  // ─── Offer accept ──────────────────────────────────────────────────────────
+
+  const handleOfferAccept = useCallback(
+    async (offerId?: string) => {
+      if (sessionId && offerId) {
+        try {
+          await recordConversion({ sessionId, data: { offerId } })
+        } catch {
+          // Non-fatal: complete even if conversion recording fails
+        }
+      }
+      setPageState('completed')
+    },
+    [sessionId, recordConversion]
+  )
+
+  // ─── Loading / error / empty states ───────────────────────────────────────
+
+  if (pageState === 'loading' || isFlowLoading) {
+    return (
+      <PageShell>
+        <SurveyPageGlobal />
+        <CenterBlock>
+          <Spinner size={32} />
+        </CenterBlock>
+      </PageShell>
+    )
   }
 
-  // ─── Edge-cases: loading / not-found / empty ────────────────────────────────
-
-  if (!survey) {
+  if (pageState === 'error' || isFlowError || !contentFlow) {
     return (
       <PageShell>
         <SurveyPageGlobal />
@@ -137,8 +232,8 @@ export function SurveyPage() {
           <BigEmoji>🔍</BigEmoji>
           <StateTitle>Survey not found</StateTitle>
           <StateBody>
-            This survey does not exist or has been removed. Please check the link
-            and try again.
+            This survey does not exist or is not available. Please check the
+            link and try again.
           </StateBody>
           <Button variant="secondary" onClick={() => navigate({ to: '/dashboard' })}>
             Back to dashboard
@@ -148,20 +243,7 @@ export function SurveyPage() {
     )
   }
 
-  if (survey.status !== SurveyStatus.Published) {
-    return (
-      <PageShell>
-        <SurveyPageGlobal />
-        <CenterBlock>
-          <BigEmoji>🔒</BigEmoji>
-          <StateTitle>Survey unavailable</StateTitle>
-          <StateBody>This survey is not yet published.</StateBody>
-        </CenterBlock>
-      </PageShell>
-    )
-  }
-
-  if (survey.nodes.length === 0) {
+  if (contentFlow.nodes.length === 0) {
     return (
       <PageShell>
         <SurveyPageGlobal />
@@ -185,13 +267,6 @@ export function SurveyPage() {
     )
   }
 
-  // ─── Progress ──────────────────────────────────────────────────────────────
-
-  const progressPct =
-    pageState === 'completed'
-      ? 100
-      : estimateProgress(survey, history.length)
-
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -202,12 +277,12 @@ export function SurveyPage() {
       <TopBar>
         <BackBtn
           aria-label="Go back"
-          disabled={history.length === 0 || pageState === 'completed'}
-          onClick={goBack}
+          disabled={!canGoBack || pageState === 'completed'}
+          onClick={handleGoBack}
         >
           <ArrowLeft size={18} />
         </BackBtn>
-        <BrandName>🌿 {survey.title}</BrandName>
+        <BrandName>🌿 {contentFlow.name}</BrandName>
         {/* spacer to centre the title */}
         <div style={{ width: 32 }} />
       </TopBar>
@@ -215,7 +290,7 @@ export function SurveyPage() {
       {/* ─── Progress bar ────────────────────────────────────────────── */}
       <ProgressTrack>
         <ProgressFill
-          animate={{ width: `${progressPct}%` }}
+          animate={{ width: `${pageState === 'completed' ? 100 : progressPct}%` }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
           style={{ width: 0 }}
         />
@@ -263,24 +338,27 @@ export function SurveyPage() {
               exit="exit"
               transition={{ duration: 0.25, ease: 'easeInOut' }}
             >
-              {currentNode.data.type === NodeType.Question && (
+              {currentNode.type === 'question' && (
                 <QuestionStep
-                  data={currentNode.data}
+                  data={sessionNodeToQuestion(currentNode)}
                   onAnswer={handleAnswer}
                 />
               )}
 
-              {currentNode.data.type === NodeType.Info && (
+              {currentNode.type === 'info_page' && (
                 <InfoStep
-                  data={currentNode.data}
+                  data={sessionNodeToInfo(currentNode)}
                   onContinue={handleInfoContinue}
                 />
               )}
 
-              {currentNode.data.type === NodeType.Offer && (
+              {currentNode.type === 'offer' && (
                 <OfferStep
-                  data={currentNode.data}
-                  onAccept={handleOfferAccept}
+                  data={sessionNodeToOffer(currentNode, currentOffers)}
+                  onAccept={() => {
+                    const primaryOffer = currentOffers.find((o) => o.isPrimary)?.offer
+                    handleOfferAccept(primaryOffer?.id)
+                  }}
                 />
               )}
             </Card>

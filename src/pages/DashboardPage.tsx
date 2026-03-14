@@ -8,7 +8,8 @@ import { Input } from "@shared/ui/Input";
 import { AdminLayout } from "@/components/AdminLayout";
 import { SurveyCard } from "@features/surveys/components/SurveyCard";
 import { CreateSurveyModal } from "@features/surveys/components/CreateSurveyModal";
-import { useSurveysStore } from "@features/surveys/store/surveys.store";
+import { useFlows, useDeleteFlow, usePublishFlow, useUnpublishFlow } from "@features/flows/hooks/useFlows";
+import { Spinner } from "@shared/ui/Spinner";
 import toast from "react-hot-toast";
 
 export function DashboardPage() {
@@ -16,28 +17,42 @@ export function DashboardPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const surveys = useSurveysStore((s) => s.surveys);
-  const deleteSurvey = useSurveysStore((s) => s.deleteSurvey);
+  const { data: flows = [], isLoading, isError } = useFlows();
+  const { mutate: deleteFlow } = useDeleteFlow();
+  const { mutate: publishFlow } = usePublishFlow();
+  const { mutate: unpublishFlow } = useUnpublishFlow();
 
-  const filtered = surveys.filter(
-    (s) =>
-      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.description?.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filtered = flows.filter(
+    (f) =>
+      f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      f.description?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const totalCompletions = surveys.reduce(
-    (acc, s) => acc + s.completionCount,
-    0,
-  );
-  const published = surveys.filter((s) => s.status === "published").length;
+  const published = flows.filter((f) => f.isPublished).length;
 
   const handleEdit = (id: string) => {
     navigate({ to: "/editor/$surveyId", params: { surveyId: id } });
   };
 
   const handleDelete = (id: string) => {
-    deleteSurvey(id);
-    toast.success("Survey deleted");
+    deleteFlow(id, {
+      onSuccess: () => toast.success("Survey deleted"),
+      onError: () => toast.error("Failed to delete survey"),
+    });
+  };
+
+  const handlePublish = (id: string) => {
+    publishFlow(id, {
+      onSuccess: () => toast.success("Survey published"),
+      onError: () => toast.error("Failed to publish survey"),
+    });
+  };
+
+  const handleUnpublish = (id: string) => {
+    unpublishFlow(id, {
+      onSuccess: () => toast.success("Survey unpublished"),
+      onError: () => toast.error("Failed to unpublish survey"),
+    });
   };
 
   const handleCopyLink = (id: string) => {
@@ -68,12 +83,8 @@ export function DashboardPage() {
 
         <StatsRow>
           {[
-            { label: "Total surveys", value: surveys.length },
+            { label: "Total surveys", value: flows.length },
             { label: "Published", value: published },
-            {
-              label: "Total completions",
-              value: totalCompletions.toLocaleString(),
-            },
           ].map((stat, i) => (
             <StatCard
               key={stat.label}
@@ -98,7 +109,17 @@ export function DashboardPage() {
           </SearchWrapper>
         </Toolbar>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <LoadingBlock>
+            <Spinner size={32} />
+          </LoadingBlock>
+        ) : isError ? (
+          <EmptyState initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <EmptyIcon>⚠️</EmptyIcon>
+            <EmptyTitle>Failed to load surveys</EmptyTitle>
+            <EmptyDesc>Unable to connect to the server. Please try again.</EmptyDesc>
+          </EmptyState>
+        ) : filtered.length === 0 ? (
           <EmptyState initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <EmptyIcon>
               <LayoutGrid size={28} color="#A1A1AA" />
@@ -122,14 +143,16 @@ export function DashboardPage() {
           </EmptyState>
         ) : (
           <Grid>
-            {filtered.map((survey, i) => (
+            {filtered.map((flow, i) => (
               <SurveyCard
-                key={survey.id}
-                survey={survey}
+                key={flow.id}
+                flow={flow}
                 index={i}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onCopyLink={handleCopyLink}
+                onPublish={handlePublish}
+                onUnpublish={handleUnpublish}
               />
             ))}
           </Grid>
@@ -257,4 +280,11 @@ const EmptyDesc = styled.p`
   font-size: ${({ theme }) => theme.typography.sizes.sm};
   color: ${({ theme }) => theme.colors.textSecondary};
   max-width: 300px;
+`;
+
+const LoadingBlock = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
 `;
