@@ -10,6 +10,7 @@ import { motion } from 'framer-motion'
 import { LoginPage } from '@pages/LoginPage'
 import { DashboardPage } from '@pages/DashboardPage'
 import { DagEditorPage } from '@pages/DagEditorPage'
+import { SurveyPage } from '@pages/SurveyPage'
 import { useAuthStore } from '@features/auth/store/auth.store'
 
 // ─── Root route ───────────────────────────────────────────────────────────────
@@ -99,12 +100,24 @@ const editorRoute = createRoute({
   ),
 })
 
+// Public survey-taking route — no authentication required
+const surveyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/survey/$surveyId',
+  component: () => (
+    <PageWrapper>
+      <SurveyPage />
+    </PageWrapper>
+  ),
+})
+
 // ─── Router ──────────────────────────────────────────────────────────────────
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   dashboardRoute,
   editorRoute,
+  surveyRoute,
 ])
 
 export const router = createRouter({ routeTree })
