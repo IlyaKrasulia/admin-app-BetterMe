@@ -45,16 +45,15 @@ function QuestionProperties({ node }: { node: Node<DagNodeData> }) {
       max?: number;
     };
 
-  console.log(data, ' => dataid');
-
   const addOption = () => {
+    const currentOptions = data.options ?? [];
     const newOption: AnswerOption = {
       id: crypto.randomUUID(),
       label: "New option",
-      value: `option_${data.options.length + 1}`,
+      value: `option_${currentOptions.length + 1}`,
     };
     updateNodeData(node.id, {
-      options: [...data.options, newOption],
+      options: [...currentOptions, newOption],
     } as Partial<DagNodeData>);
   };
 

@@ -46,7 +46,7 @@ export function flowNodeToNode(dto: FlowNodeDto): Node<DagNodeData> {
         questionText: dto.title,
         attribute: (dto.attributeKey as AttributeKey) ?? AttributeKey.Goal,
         answerType: AnswerType.SingleChoice,
-        options: dto.options.map((o) => ({
+        options: (dto.options ?? []).map((o) => ({
           id: o.id,
           label: o.label,
           value: o.value,
@@ -78,14 +78,6 @@ export function flowNodeToNode(dto: FlowNodeDto): Node<DagNodeData> {
       break;
     }
   }
-  // TODO: Remove
-  console.log({
-    id: dto.id,
-    type: nodeType,
-    position: { x: dto.positionX, y: dto.positionY },
-    data,
-  });
-
   return {
     id: dto.id,
     type: nodeType,

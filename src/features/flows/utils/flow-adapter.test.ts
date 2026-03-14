@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { flowNodeToNode, flowEdgeToEdge, nodeToCreateRequest, nodeToUpdateRequest } from './flow-adapter'
 import { NodeType, AttributeKey, AnswerType } from '@shared/types/dag.types'
 import { MarkerType } from 'reactflow'
-import type { FlowNodeDto, FlowEdgeDto } from '@shared/types/api.types'
+import type { FlowNodeDto, FlowEdgeDto, OptionDto } from '@shared/types/api.types'
 import type { Node } from 'reactflow'
 import type { DagNodeData } from '@shared/types/dag.types'
 
@@ -88,6 +88,15 @@ describe('flowNodeToNode', () => {
     const node = flowNodeToNode({ ...questionDto, attributeKey: null })
     if (node.data.type === NodeType.Question) {
       expect(node.data.attribute).toBe(AttributeKey.Goal)
+    }
+  })
+
+  it('handles null options gracefully for question nodes', () => {
+    const dtoWithNullOptions = { ...questionDto, options: null as unknown as OptionDto[] }
+    const node = flowNodeToNode(dtoWithNullOptions)
+    expect(node.type).toBe(NodeType.Question)
+    if (node.data.type === NodeType.Question) {
+      expect(node.data.options).toEqual([])
     }
   })
 })

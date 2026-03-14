@@ -138,19 +138,13 @@ export function DagEditorPage() {
       await Promise.all(
         nodes
           .filter((n) => originalNodeIds.has(n.id))
-          .map((node) => {
-            console.log({
+          .map((node) =>
+            updateNode({
               flowId: surveyId,
               nodeId: node.id,
               data: nodeToUpdateRequest(node),
-            });
-
-            return updateNode({
-              flowId: surveyId,
-              nodeId: node.id,
-              data: nodeToUpdateRequest(node),
-            });
-          }),
+            }),
+          ),
       );
 
       // 3. Delete removed nodes (in original API response but not in canvas)
@@ -222,7 +216,7 @@ export function DagEditorPage() {
   };
 
   const handleTest = () => {
-    navigate({ to: `/survey/${surveyId}` });
+    navigate({ to: "/survey/$surveyId", params: { surveyId } });
   };
 
   return (
