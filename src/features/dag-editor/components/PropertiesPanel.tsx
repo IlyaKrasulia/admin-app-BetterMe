@@ -138,7 +138,7 @@ function QuestionProperties({ node }: { node: Node<DagNodeData> }) {
       {data.answerType !== AnswerType.Slider && (
         <FieldGroup>
           <GroupLabel>Answer Options</GroupLabel>
-          {data.options.map((opt) => (
+          {data.options && data.options.map((opt) => (
             <OptionRow key={opt.id}>
               <Input
                 value={opt.label}
