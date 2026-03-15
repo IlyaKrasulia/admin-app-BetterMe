@@ -71,6 +71,11 @@ function sessionNodeToOffer(
 
 type PageState = 'loading' | 'survey' | 'completed' | 'error'
 
+/** Estimate progress as 0-95 %, capped until the session completes. */
+function calculateProgress(stepCount: number): number {
+  return Math.min(Math.round((stepCount / Math.max(stepCount + 2, 5)) * 100), 95)
+}
+
 export function SurveyPage() {
   const navigate = useNavigate()
   const params = useParams({ strict: false }) as { surveyId?: string }
@@ -141,7 +146,7 @@ export function SurveyPage() {
           setPageState('completed')
         } else {
           // Estimate progress: cap at 95% until completed
-          setProgressPct(Math.min(Math.round((newStepCount / Math.max(newStepCount + 2, 5)) * 100), 95))
+          setProgressPct(calculateProgress(newStepCount))
         }
       } catch {
         // Non-fatal: keep the current node displayed
@@ -169,7 +174,7 @@ export function SurveyPage() {
         setProgressPct(100)
         setPageState('completed')
       } else {
-        setProgressPct(Math.min(Math.round((newStepCount / Math.max(newStepCount + 2, 5)) * 100), 95))
+        setProgressPct(calculateProgress(newStepCount))
       }
     } catch {
       // Non-fatal
@@ -190,7 +195,7 @@ export function SurveyPage() {
       setProgressPct(
         newStepCount === 0
           ? 0
-          : Math.min(Math.round((newStepCount / Math.max(newStepCount + 2, 5)) * 100), 95)
+          : calculateProgress(newStepCount)
       )
       if (pageState === 'completed') {
         setPageState('survey')
