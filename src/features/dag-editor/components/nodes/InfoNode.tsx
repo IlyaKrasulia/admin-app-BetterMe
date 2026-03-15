@@ -3,15 +3,18 @@ import { Handle, Position } from "reactflow";
 import type { NodeProps } from "reactflow";
 import { useTheme } from "styled-components";
 import styled from "styled-components";
-import { Info } from "lucide-react";
+import { Info, PlayCircle } from "lucide-react";
 import type { InfoNodeData } from "@shared/types/dag.types";
+import { useDagStore } from "../../store/dag.store";
 
 export const InfoNode = memo(function InfoNode({
+  id,
   data,
   selected,
 }: NodeProps<InfoNodeData>) {
   const theme = useTheme();
   const accent = theme.colors.nodeInfo;
+  const isEntry = useDagStore((s) => s.entryNodeId === id);
 
   return (
     <>
@@ -26,6 +29,12 @@ export const InfoNode = memo(function InfoNode({
           boxShadow: `0 0 0 2px ${accent}`,
         }}
       />
+      {isEntry && (
+        <EntryBadge $color={accent}>
+          <PlayCircle size={9} strokeWidth={2.5} />
+          ENTRY
+        </EntryBadge>
+      )}
       <Card $selected={!!selected} $accent={accent}>
         <Header $bg={accent}>
           <Info size={13} color="white" strokeWidth={2.5} />
@@ -129,4 +138,20 @@ const BodyText = styled.p`
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+`;
+const EntryBadge = styled.div<{ $color: string }>`
+  position: absolute;
+  top: -18px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: ${({ $color }) => $color};
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 2px 7px 2px 5px;
+  border-radius: 6px 6px 0 0;
+  pointer-events: none;
 `;

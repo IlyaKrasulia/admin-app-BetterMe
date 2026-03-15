@@ -89,7 +89,7 @@ export function DagEditorPage() {
       const dagNodes = safeNodes.map(flowNodeToNode);
       const dagEdges = safeEdges.map(flowEdgeToEdge);
 
-      loadSurvey(flow.id, dagNodes, dagEdges);
+      loadSurvey(flow.id, dagNodes, dagEdges, flow.entryNodeId ?? null);
     }
   }, [flow?.id]);
 
@@ -391,7 +391,7 @@ export function DagEditorPage() {
         originalEdgesRef.current = typedFlow.edges;
         const dagNodes = typedFlow.nodes.map(flowNodeToNode);
         const dagEdges = typedFlow.edges.map(flowEdgeToEdge);
-        loadSurvey(typedFlow.id, dagNodes, dagEdges);
+        loadSurvey(typedFlow.id, dagNodes, dagEdges, typedFlow.entryNodeId ?? null);
       }
 
       markSaved();

@@ -9,10 +9,11 @@ interface DagState {
   edges: Edge[]
   selectedNodeId: string | null
   selectedEdgeId: string | null
+  entryNodeId: string | null
   isDirty: boolean
 
   // Actions
-  loadSurvey: (surveyId: string, nodes: Node<DagNodeData>[], edges: Edge[]) => void
+  loadSurvey: (surveyId: string, nodes: Node<DagNodeData>[], edges: Edge[], entryNodeId?: string | null) => void
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
@@ -22,6 +23,7 @@ interface DagState {
   setSelectedNode: (id: string | null) => void
   setSelectedEdge: (id: string | null) => void
   updateEdgeCondition: (id: string, conditions: EdgeConditions) => void
+  setEntryNodeId: (id: string | null) => void
   markSaved: () => void
 }
 
@@ -67,10 +69,11 @@ export const useDagStore = create<DagState>((set, get) => ({
   edges: [],
   selectedNodeId: null,
   selectedEdgeId: null,
+  entryNodeId: null,
   isDirty: false,
 
-  loadSurvey: (surveyId, nodes, edges) =>
-    set({ surveyId, nodes, edges, selectedNodeId: null, selectedEdgeId: null, isDirty: false }),
+  loadSurvey: (surveyId, nodes, edges, entryNodeId = null) =>
+    set({ surveyId, nodes, edges, entryNodeId, selectedNodeId: null, selectedEdgeId: null, isDirty: false }),
 
   onNodesChange: (changes) =>
     set((s) => ({
@@ -117,6 +120,7 @@ export const useDagStore = create<DagState>((set, get) => ({
 
   setSelectedNode: (id) => set({ selectedNodeId: id, selectedEdgeId: null }),
   setSelectedEdge: (id) => set({ selectedEdgeId: id, selectedNodeId: null }),
+  setEntryNodeId: (id) => set({ entryNodeId: id }),
 
   updateEdgeCondition: (id, conditions) =>
     set((s) => ({
