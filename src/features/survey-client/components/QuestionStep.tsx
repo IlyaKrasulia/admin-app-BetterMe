@@ -9,23 +9,31 @@ import { Button } from '@shared/ui/Button'
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface QuestionStepProps {
-  data: QuestionNodeData & { mediaUrl?: string | null }
+  // Додаємо min та max до типізації, щоб TypeScript їх розпізнавав
+  data: QuestionNodeData & { mediaUrl?: string | null; min?: number; max?: number }
   onAnswer: (value: string | string[]) => void
 }
 
 export function QuestionStep({ data, onAnswer }: QuestionStepProps) {
-  const [selected, setSelected] = useState<string[]>([])
+  const { questionText, answerType, options, mediaUrl, min = 0, max = 10 } = data
 
-  const { questionText, answerType, options, mediaUrl } = data
+  const isMulti = answerType === AnswerType.MultipleChoice
+  const isSlider = answerType === AnswerType.Slider
+
+  // Стан для множинного вибору
+  const [selected, setSelected] = useState<string[]>([])
+  
+  // Стан для слайдера (за замовчуванням ставимо по центру)
+  const [sliderValue, setSliderValue] = useState<number>(Math.round((min + max) / 2))
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
   function handleOptionClick(option: AnswerOption) {
-    if (answerType === AnswerType.SingleChoice || answerType === AnswerType.Slider) {
-      // Immediately advance on single selection
+    if (answerType === AnswerType.SingleChoice) {
+      // Одразу переходимо далі при одиничному виборі
       onAnswer(option.value)
-    } else {
-      // Multiple choice: toggle selection
+    } else if (isMulti) {
+      // Множинний вибір: перемикаємо стан
       setSelected((prev) =>
         prev.includes(option.value)
           ? prev.filter((v) => v !== option.value)
@@ -34,57 +42,78 @@ export function QuestionStep({ data, onAnswer }: QuestionStepProps) {
     }
   }
 
-  function handleMultiContinue() {
-    if (selected.length > 0) onAnswer(selected)
+  // Спільний обробник для кнопки "Continue" (використовується для Multi та Slider)
+  function handleContinue() {
+    if (isMulti && selected.length > 0) {
+      onAnswer(selected)
+    } else if (isSlider) {
+      onAnswer(sliderValue.toString())
+    }
   }
-
-  // ─── Choice variants (SingleChoice, MultipleChoice, Slider-as-options) ───────
-  const isMulti = answerType === AnswerType.MultipleChoice
-
-  console.log(data, ' answer type');
-  
 
   return (
     <Wrapper>
       {mediaUrl && <QuestionMedia src={mediaUrl} alt={questionText} />}
       <QuestionText>{questionText}</QuestionText>
 
-      {isMulti && (
-        <HintText>Select all that apply</HintText>
+      {isMulti && <HintText>Select all that apply</HintText>}
+
+      {/* Рендеримо сітку опцій або слайдер залежно від типу */}
+      {!isSlider ? (
+        <OptionsGrid>
+          <AnimatePresence>
+            {options?.map((opt, i) => {
+              const isSelected = selected.includes(opt.value)
+              return (
+                <OptionCard
+                  key={opt.id}
+                  $selected={isMulti ? isSelected : false}
+                  onClick={() => handleOptionClick(opt)}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05, duration: 0.2 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                >
+                  {opt.icon && <OptionIcon>{opt.icon}</OptionIcon>}
+                  <OptionLabel $selected={isMulti ? isSelected : false}>
+                    {opt.label}
+                  </OptionLabel>
+                </OptionCard>
+              )
+            })}
+          </AnimatePresence>
+        </OptionsGrid>
+      ) : (
+        <SliderWrapper
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <CurrentValue>{sliderValue}</CurrentValue>
+          <SliderInput
+            type="range"
+            min={min}
+            max={max}
+            step={1}
+            value={sliderValue}
+            onChange={(e) => setSliderValue(Number(e.target.value))}
+          />
+          <SliderLabels>
+            <span>{min}</span>
+            <span>{max}</span>
+          </SliderLabels>
+        </SliderWrapper>
       )}
 
-      <OptionsGrid>
-        <AnimatePresence>
-          {options && answerType !== AnswerType.Slider ? options.map((opt, i) => {
-            const isSelected = selected.includes(opt.value)
-            return (
-              <OptionCard
-                key={opt.id}
-                $selected={isMulti ? isSelected : false}
-                onClick={() => handleOptionClick(opt)}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05, duration: 0.2 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-              >
-                {opt.icon && <OptionIcon>{opt.icon}</OptionIcon>}
-                <OptionLabel $selected={isMulti ? isSelected : false}>
-                  {opt.label}
-                </OptionLabel>
-              </OptionCard>
-            )
-          }) : <>STIDER</>}
-        </AnimatePresence>
-      </OptionsGrid>
-
-      {isMulti && (
+      {/* Показуємо кнопку Continue для MultipleChoice або Slider */}
+      {(isMulti || isSlider) && (
         <Button
           fullWidth
           size="lg"
-          disabled={selected.length === 0}
+          disabled={isMulti && selected.length === 0}
           icon={<ChevronRight size={18} />}
-          onClick={handleMultiContinue}
+          onClick={handleContinue}
         >
           Continue
         </Button>
@@ -92,7 +121,6 @@ export function QuestionStep({ data, onAnswer }: QuestionStepProps) {
     </Wrapper>
   )
 }
-
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -164,29 +192,6 @@ const OptionLabel = styled.span<{ $selected: boolean }>`
     $selected ? theme.colors.accentText : theme.colors.textPrimary};
 `
 
-const TextInput = styled.textarea`
-  width: 100%;
-  min-height: 120px;
-  padding: 14px 16px;
-  border: 2px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.radii.md};
-  background: ${({ theme }) => theme.colors.bgSurface};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: ${({ theme }) => theme.typography.fontFamily};
-  font-size: ${({ theme }) => theme.typography.sizes.md};
-  resize: vertical;
-  transition: border-color ${({ theme }) => theme.transitions.fast};
-  outline: none;
-
-  &:focus {
-    border-color: ${({ theme }) => theme.colors.borderFocus};
-  }
-
-  &::placeholder {
-    color: ${({ theme }) => theme.colors.textTertiary};
-  }
-`
-
 const HintText = styled.p`
   font-size: ${({ theme }) => theme.typography.sizes.sm};
   color: ${({ theme }) => theme.colors.textTertiary};
@@ -199,4 +204,52 @@ const QuestionMedia = styled.img`
   border-radius: ${({ theme }) => theme.radii.md};
   object-fit: contain;
   align-self: center;
+`
+
+// ─── Slider Styles ────────────────────────────────────────────────────────────
+
+const SliderWrapper = styled(motion.div)`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 16px;
+  background: ${({ theme }) => theme.colors.bgSurface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+`
+
+const CurrentValue = styled.div`
+  text-align: center;
+  font-size: 42px;
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+  color: ${({ theme }) => theme.colors.accent};
+`
+
+const SliderInput = styled.input`
+  width: 100%;
+  cursor: pointer;
+  accent-color: ${({ theme }) => theme.colors.accent};
+  height: 6px;
+  background: ${({ theme }) => theme.colors.border};
+  border-radius: 4px;
+  outline: none;
+  
+  &::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    transition: transform 0.1s;
+  }
+
+  &::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+`
+
+const SliderLabels = styled.div`
+  display: flex;
+  justify-content: space-between;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.typography.sizes.sm};
+  font-weight: ${({ theme }) => theme.typography.weights.semibold};
 `

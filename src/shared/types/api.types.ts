@@ -341,7 +341,7 @@ export interface SessionCurrentNode {
   mediaUrl: string | null
   options: ContentOptionDto[]
   offers: SessionNodeOffer[]
-  answerType: AnswerType
+  desctiption: any | null;
 }
 
 /** Unified session response shape returned by start, answer, back, and get endpoints */

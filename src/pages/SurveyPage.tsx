@@ -1,22 +1,29 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import styled, { createGlobalStyle } from 'styled-components'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useParams, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, CheckCircle2 } from 'lucide-react'
-import { NodeType, AnswerType } from '@shared/types/dag.types'
-import type { QuestionNodeData, InfoNodeData, OfferNodeData } from '@shared/types/dag.types'
-import type { SessionCurrentNode, SessionNodeOffer } from '@shared/types/api.types'
+import { useState, useCallback, useEffect, useRef } from "react";
+import styled, { createGlobalStyle } from "styled-components";
+import { motion, AnimatePresence } from "framer-motion";
+import { useParams, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { NodeType, AnswerType } from "@shared/types/dag.types";
+import type {
+  QuestionNodeData,
+  InfoNodeData,
+  OfferNodeData,
+} from "@shared/types/dag.types";
+import type {
+  SessionCurrentNode,
+  SessionNodeOffer,
+} from "@shared/types/api.types";
 import {
   useStartSession,
   useSubmitAnswer,
   useGoBack,
   useRecordConversion,
-} from '@features/quiz/hooks/useQuiz'
-import { QuestionStep } from '@features/survey-client/components/QuestionStep'
-import { InfoStep } from '@features/survey-client/components/InfoStep'
-import { OfferStep } from '@features/survey-client/components/OfferStep'
-import { Button } from '@shared/ui/Button'
-import { Spinner } from '@shared/ui/Spinner'
+} from "@features/quiz/hooks/useQuiz";
+import { QuestionStep } from "@features/survey-client/components/QuestionStep";
+import { InfoStep } from "@features/survey-client/components/InfoStep";
+import { OfferStep } from "@features/survey-client/components/OfferStep";
+import { Button } from "@shared/ui/Button";
+import { Spinner } from "@shared/ui/Spinner";
 
 // ─── Card animation variants ──────────────────────────────────────────────────
 
@@ -24,189 +31,219 @@ const cardVariants = {
   enter: { opacity: 0, x: 40 },
   center: { opacity: 1, x: 0 },
   exit: { opacity: 0, x: -40 },
-}
+};
 
 // ─── Adapter: SessionCurrentNode → step component data ───────────────────────
 
-function sessionNodeToQuestion(node: SessionCurrentNode): QuestionNodeData & { mediaUrl?: string | null } {
+function sessionNodeToQuestion(
+  node: SessionCurrentNode,
+): QuestionNodeData & { mediaUrl?: string | null; min?: number; max?: number } {
+  const desc = node.description || "";
+
+  // Универсальная регулярка:
+  // Ищет ключи (answerType, min, max, minValue, maxValue) с кавычками или без
+  // Ищет разделитель (: или =)
+  // Захватывает значение (без кавычек, запятых и скобок)
+  const regex =
+    /"?\b(answerType|minValue|maxValue|min|max)\b"?\s*[:=]\s*"?([^,"'}\s]+)"?/g;
+
+  // Значения по умолчанию
+  let parsedAnswerType = "single_choice";
+  let parsedMin: number | undefined = undefined;
+  let parsedMax: number | undefined = undefined;
+
+  let match;
+  while ((match = regex.exec(desc)) !== null) {
+    const key = match[1];
+    const value = match[2];
+
+    if (key === "answerType") parsedAnswerType = value;
+    if (key === "min" || key === "minValue") parsedMin = Number(value);
+    if (key === "max" || key === "maxValue") parsedMax = Number(value);
+  }
+
   return {
     type: NodeType.Question,
-    questionText: node.title ?? '',
-    attribute: (node.attributeKey ?? 'goal') as QuestionNodeData['attribute'],
-    answerType: node.answerType,
+    questionText: node.title ?? "",
+    attribute: (node.attributeKey ?? "goal") as QuestionNodeData["attribute"],
+    answerType: parsedAnswerType as AnswerType,
+    min: parsedMin,
+    max: parsedMax,
     options: (node.options ?? []).map((o) => ({
       id: o.id,
       label: o.label,
       value: o.value,
     })),
     mediaUrl: node.mediaUrl,
-  }
+    description: desc,
+  };
 }
 
 function sessionNodeToInfo(node: SessionCurrentNode): InfoNodeData {
+  console.log({ ...node }, " => sessionNodeToInfo");
   return {
     type: NodeType.Info,
-    title: node.title ?? '',
-    body: node.description ?? '',
+    title: node.title ?? "",
+    body: node.description ?? "",
     imageUrl: node.mediaUrl ?? undefined,
-  }
+  };
 }
 
 function sessionNodeToOffer(
   node: SessionCurrentNode,
-  offers: SessionNodeOffer[]
+  offers: SessionNodeOffer[],
 ): OfferNodeData & { offers: SessionNodeOffer[] } {
-  const primary = offers.find((o) => o.isPrimary) ?? offers[0]
+  const primary = offers.find((o) => o.isPrimary) ?? offers[0];
   return {
     type: NodeType.Offer,
-    headline: node.title ?? (primary?.name ?? 'Special Offer'),
-    description: node.description ?? '',
-    ctaText: primary?.ctaText ?? 'Get Started',
+    headline: node.title ?? primary?.name ?? "Special Offer",
+    description: node.description ?? "",
+    ctaText: primary?.ctaText ?? "Get Started",
     price: primary?.price,
     offers,
-  }
+  };
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-type PageState = 'loading' | 'survey' | 'completed' | 'error'
+type PageState = "loading" | "survey" | "completed" | "error";
 
 /** Estimate progress as 0-95 %, capped until the session completes. */
 function calculateProgress(stepCount: number): number {
-  return Math.min(Math.round((stepCount / Math.max(stepCount + 2, 5)) * 100), 95)
+  return Math.min(
+    Math.round((stepCount / Math.max(stepCount + 2, 5)) * 100),
+    95,
+  );
 }
 
 export function SurveyPage() {
-  const navigate = useNavigate()
-  const params = useParams({ strict: false }) as { surveyId?: string }
-  const surveyId = params.surveyId ?? ''
+  const navigate = useNavigate();
+  const params = useParams({ strict: false }) as { surveyId?: string };
+  const surveyId = params.surveyId ?? "";
 
   // ─── API hooks ────────────────────────────────────────────────────────────
-  const { mutateAsync: startSession } = useStartSession()
-  const { mutateAsync: submitAnswer } = useSubmitAnswer()
-  const { mutateAsync: goBackApi } = useGoBack()
-  const { mutateAsync: recordConversion } = useRecordConversion()
+  const { mutateAsync: startSession } = useStartSession();
+  const { mutateAsync: submitAnswer } = useSubmitAnswer();
+  const { mutateAsync: goBackApi } = useGoBack();
+  const { mutateAsync: recordConversion } = useRecordConversion();
 
   // ─── State ────────────────────────────────────────────────────────────────
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [currentNode, setCurrentNode] = useState<SessionCurrentNode | null>(null)
-  const [progressPct, setProgressPct] = useState(0)
-  const [pageState, setPageState] = useState<PageState>('loading')
-  const [direction, setDirection] = useState<1 | -1>(1)
-  const [stepCount, setStepCount] = useState(0)
-  const [canGoBack, setCanGoBack] = useState(false)
-  const [flowName, setFlowName] = useState<string>('')
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentNode, setCurrentNode] = useState<SessionCurrentNode | null>(
+    null,
+  );
+  const [progressPct, setProgressPct] = useState(0);
+  const [pageState, setPageState] = useState<PageState>("loading");
+  const [direction, setDirection] = useState<1 | -1>(1);
+  const [stepCount, setStepCount] = useState(0);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [flowName, setFlowName] = useState<string>("");
 
   // ─── Start session once surveyId is available ─────────────────────────────
-  const hasStartedRef = useRef(false)
+  const hasStartedRef = useRef(false);
   useEffect(() => {
     if (!surveyId) {
-      setPageState('error')
-      return
+      setPageState("error");
+      return;
     }
     // Guard against React strict-mode double invocation
-    if (hasStartedRef.current) return
-    hasStartedRef.current = true
-    
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
 
     startSession({ flowId: surveyId })
       .then((resp) => {
-        console.log(resp, ' => start session response');
-        
-        setSessionId(resp.sessionId)
-        setCurrentNode(resp.currentNode)
-        setFlowName(resp.flowId)
-        setProgressPct(0)
-        setStepCount(0)
-        setPageState(resp.status === 'Completed' ? 'completed' : 'survey')
-        setCanGoBack(false)
+        setSessionId(resp.sessionId);
+        setCurrentNode(resp.currentNode);
+        setFlowName(resp.flowId);
+        setProgressPct(0);
+        setStepCount(0);
+        setPageState(resp.status === "Completed" ? "completed" : "survey");
+        setCanGoBack(false);
       })
-      .catch(() => setPageState('error'))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surveyId])
+      .catch(() => setPageState("error"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surveyId]);
 
   // ─── Answer handler ────────────────────────────────────────────────────────
 
   const handleAnswer = useCallback(
     async (value: string | string[]) => {
-      if (!sessionId || !currentNode) return
+      if (!sessionId || !currentNode) return;
       try {
         const resp = await submitAnswer({
           sessionId,
           data: {
             nodeId: currentNode.id,
-            value: Array.isArray(value) ? value.join(',') : value,
+            value: Array.isArray(value) ? value.join(",") : value,
           },
-        })
-        const newStepCount = stepCount + 1
-        setDirection(1)
-        setCurrentNode(resp.currentNode)
-        setStepCount(newStepCount)
-        setCanGoBack(true)
+        });
+        const newStepCount = stepCount + 1;
+        setDirection(1);
+        setCurrentNode(resp.currentNode);
+        setStepCount(newStepCount);
+        setCanGoBack(true);
 
-        if (resp.status === 'Completed') {
-          setProgressPct(100)
-          setPageState('completed')
+        
+
+        if (resp.status === "Completed") {
+          setProgressPct(100);
+          setPageState("completed");
         } else {
           // Estimate progress: cap at 95% until completed
-          setProgressPct(calculateProgress(newStepCount))
+          setProgressPct(calculateProgress(newStepCount));
         }
       } catch {
         // Non-fatal: keep the current node displayed
       }
     },
-    [sessionId, currentNode, submitAnswer, stepCount]
-  )
+    [sessionId, currentNode, submitAnswer, stepCount],
+  );
 
   // ─── Info continue ─────────────────────────────────────────────────────────
 
   const handleInfoContinue = useCallback(async () => {
-    if (!sessionId || !currentNode) return
+    if (!sessionId || !currentNode) return;
     try {
       const resp = await submitAnswer({
         sessionId,
-        data: { nodeId: currentNode.id, value: '' },
-      })
-      const newStepCount = stepCount + 1
-      setDirection(1)
-      setCurrentNode(resp.currentNode)
-      setStepCount(newStepCount)
-      setCanGoBack(true)
+        data: { nodeId: currentNode.id, value: "" },
+      });
+      const newStepCount = stepCount + 1;
+      setDirection(1);
+      setCurrentNode(resp.currentNode);
+      setStepCount(newStepCount);
+      setCanGoBack(true);
 
-      if (resp.status === 'Completed') {
-        setProgressPct(100)
-        setPageState('completed')
+      if (resp.status === "Completed") {
+        setProgressPct(100);
+        setPageState("completed");
       } else {
-        setProgressPct(calculateProgress(newStepCount))
+        setProgressPct(calculateProgress(newStepCount));
       }
     } catch {
       // Non-fatal
     }
-  }, [sessionId, currentNode, submitAnswer, stepCount])
+  }, [sessionId, currentNode, submitAnswer, stepCount]);
 
   // ─── Go back ───────────────────────────────────────────────────────────────
 
   const handleGoBack = useCallback(async () => {
-    if (!sessionId || !canGoBack) return
+    if (!sessionId || !canGoBack) return;
     try {
-      const resp = await goBackApi(sessionId)
-      const newStepCount = Math.max(stepCount - 1, 0)
-      setDirection(-1)
-      setCurrentNode(resp.currentNode)
-      setStepCount(newStepCount)
-      setCanGoBack(newStepCount > 0)
-      setProgressPct(
-        newStepCount === 0
-          ? 0
-          : calculateProgress(newStepCount)
-      )
-      if (pageState === 'completed') {
-        setPageState('survey')
+      const resp = await goBackApi(sessionId);
+      const newStepCount = Math.max(stepCount - 1, 0);
+      setDirection(-1);
+      setCurrentNode(resp.currentNode);
+      setStepCount(newStepCount);
+      setCanGoBack(newStepCount > 0);
+      setProgressPct(newStepCount === 0 ? 0 : calculateProgress(newStepCount));
+      if (pageState === "completed") {
+        setPageState("survey");
       }
     } catch {
       // Non-fatal
     }
-  }, [sessionId, canGoBack, goBackApi, stepCount, pageState])
+  }, [sessionId, canGoBack, goBackApi, stepCount, pageState]);
 
   // ─── Offer accept ──────────────────────────────────────────────────────────
 
@@ -214,19 +251,19 @@ export function SurveyPage() {
     async (offerId?: string) => {
       if (sessionId && offerId) {
         try {
-          await recordConversion({ sessionId, data: { offerId } })
+          await recordConversion({ sessionId, data: { offerId } });
         } catch {
           // Non-fatal: complete even if conversion recording fails
         }
       }
-      setPageState('completed')
+      setPageState("completed");
     },
-    [sessionId, recordConversion]
-  )
+    [sessionId, recordConversion],
+  );
 
   // ─── Loading / error / empty states ───────────────────────────────────────
 
-  if (pageState === 'loading') {
+  if (pageState === "loading") {
     return (
       <PageShell>
         <SurveyPageGlobal />
@@ -234,10 +271,10 @@ export function SurveyPage() {
           <Spinner size={32} />
         </CenterBlock>
       </PageShell>
-    )
+    );
   }
 
-  if (pageState === 'error') {
+  if (pageState === "error") {
     return (
       <PageShell>
         <SurveyPageGlobal />
@@ -248,12 +285,15 @@ export function SurveyPage() {
             This survey does not exist or is not available. Please check the
             link and try again.
           </StateBody>
-          <Button variant="secondary" onClick={() => navigate({ to: '/dashboard' })}>
+          <Button
+            variant="secondary"
+            onClick={() => navigate({ to: "/dashboard" })}
+          >
             Back to dashboard
           </Button>
         </CenterBlock>
       </PageShell>
-    )
+    );
   }
 
   if (!currentNode) {
@@ -264,15 +304,15 @@ export function SurveyPage() {
           <Spinner size={32} />
         </CenterBlock>
       </PageShell>
-    )
+    );
   }
 
   // ─── Determine if we should show the offer / completion screen ─────────
-  const isOffer = currentNode.type === 'Offer' && pageState === 'completed'
-  const showCompletionOnly = pageState === 'completed' && currentNode.type !== 'Offer'
+  const isOffer = currentNode.type === "Offer" && pageState === "completed";
+  const showCompletionOnly =
+    pageState === "completed" && currentNode.type !== "Offer";
 
   console.log(currentNode);
-  
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -284,7 +324,7 @@ export function SurveyPage() {
       <TopBar>
         <BackBtn
           aria-label="Go back"
-          disabled={!canGoBack || pageState === 'completed'}
+          disabled={!canGoBack || pageState === "completed"}
           onClick={handleGoBack}
         >
           <ArrowLeft size={18} />
@@ -297,8 +337,10 @@ export function SurveyPage() {
       {/* ─── Progress bar ────────────────────────────────────────────── */}
       <ProgressTrack>
         <ProgressFill
-          animate={{ width: `${pageState === 'completed' ? 100 : progressPct}%` }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
+          animate={{
+            width: `${pageState === "completed" ? 100 : progressPct}%`,
+          }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
           style={{ width: 0 }}
         />
       </ProgressTrack>
@@ -313,7 +355,7 @@ export function SurveyPage() {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
               custom={direction}
             >
               <CompletionWrapper
@@ -324,14 +366,20 @@ export function SurveyPage() {
                 <CompletionIcon
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  transition={{ delay: 0.1, type: 'spring', stiffness: 260, damping: 18 }}
+                  transition={{
+                    delay: 0.1,
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 18,
+                  }}
                 >
                   <CheckCircle2 size={64} />
                 </CompletionIcon>
                 <CompletionTitle>All done! 🎉</CompletionTitle>
                 <CompletionBody>
                   Thank you for completing the survey. Your personalised
-                  recommendations have been saved — good luck on your wellness journey!
+                  recommendations have been saved — good luck on your wellness
+                  journey!
                 </CompletionBody>
               </CompletionWrapper>
             </Card>
@@ -343,28 +391,33 @@ export function SurveyPage() {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
             >
-              {currentNode.type === 'Question' && (
+              {currentNode.type === "Question" && (
                 <QuestionStep
                   data={sessionNodeToQuestion(currentNode)}
                   onAnswer={handleAnswer}
                 />
               )}
 
-              {currentNode.type === 'InfoPage' && (
+              {currentNode.type === "InfoPage" && (
                 <InfoStep
                   data={sessionNodeToInfo(currentNode)}
                   onContinue={handleInfoContinue}
                 />
               )}
 
-              {currentNode.type === 'Offer' && (
+              {currentNode.type === "Offer" && (
                 <OfferStep
-                  data={sessionNodeToOffer(currentNode, currentNode.offers ?? [])}
+                  data={sessionNodeToOffer(
+                    currentNode,
+                    currentNode.offers ?? [],
+                  )}
                   onAccept={() => {
-                    const primary = (currentNode.offers ?? []).find((o) => o.isPrimary) ?? (currentNode.offers ?? [])[0]
-                    handleOfferAccept(primary?.id)
+                    const primary =
+                      (currentNode.offers ?? []).find((o) => o.isPrimary) ??
+                      (currentNode.offers ?? [])[0];
+                    handleOfferAccept(primary?.id);
                   }}
                 />
               )}
@@ -373,15 +426,13 @@ export function SurveyPage() {
         </AnimatePresence>
       </ContentArea>
     </PageShell>
-  )
+  );
 }
-
-
 
 // ─── Global scroll reset for the survey page ─────────────────────────────────
 const SurveyPageGlobal = createGlobalStyle`
   body { overflow-y: auto; }
-`
+`;
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
@@ -390,7 +441,7 @@ const PageShell = styled.div`
   background: ${({ theme }) => theme.colors.bg};
   display: flex;
   flex-direction: column;
-`
+`;
 
 const TopBar = styled.header`
   position: sticky;
@@ -403,7 +454,7 @@ const TopBar = styled.header`
   display: flex;
   align-items: center;
   gap: 16px;
-`
+`;
 
 const BrandName = styled.span`
   font-size: ${({ theme }) => theme.typography.sizes.md};
@@ -411,7 +462,7 @@ const BrandName = styled.span`
   color: ${({ theme }) => theme.colors.textPrimary};
   flex: 1;
   text-align: center;
-`
+`;
 
 const BackBtn = styled.button`
   display: flex;
@@ -435,7 +486,7 @@ const BackBtn = styled.button`
     opacity: 0.3;
     cursor: default;
   }
-`
+`;
 
 // ─── Progress bar ─────────────────────────────────────────────────────────────
 
@@ -443,13 +494,13 @@ const ProgressTrack = styled.div`
   height: 3px;
   background: ${({ theme }) => theme.colors.bgElevated};
   width: 100%;
-`
+`;
 
 const ProgressFill = styled(motion.div)`
   height: 100%;
   background: ${({ theme }) => theme.colors.accent};
   border-radius: 0 2px 2px 0;
-`
+`;
 
 // ─── Content area ─────────────────────────────────────────────────────────────
 
@@ -459,7 +510,7 @@ const ContentArea = styled.main`
   align-items: flex-start;
   justify-content: center;
   padding: 48px 24px 80px;
-`
+`;
 
 const Card = styled(motion.div)`
   background: ${({ theme }) => theme.colors.bgSurface};
@@ -473,7 +524,7 @@ const Card = styled(motion.div)`
   @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
     padding: 28px 20px;
   }
-`
+`;
 
 // ─── Error / Not-found states ─────────────────────────────────────────────────
 
@@ -486,23 +537,23 @@ const CenterBlock = styled.div`
   gap: 16px;
   padding: 48px 24px;
   text-align: center;
-`
+`;
 
 const BigEmoji = styled.div`
   font-size: 56px;
-`
+`;
 
 const StateTitle = styled.h1`
   font-size: ${({ theme }) => theme.typography.sizes.xl};
   font-weight: ${({ theme }) => theme.typography.weights.bold};
   color: ${({ theme }) => theme.colors.textPrimary};
-`
+`;
 
 const StateBody = styled.p`
   font-size: ${({ theme }) => theme.typography.sizes.md};
   color: ${({ theme }) => theme.colors.textSecondary};
   max-width: 360px;
-`
+`;
 
 // ─── Completion screen ────────────────────────────────────────────────────────
 
@@ -513,21 +564,21 @@ const CompletionWrapper = styled(motion.div)`
   gap: 20px;
   text-align: center;
   padding: 16px 0;
-`
+`;
 
 const CompletionIcon = styled(motion.div)`
   color: ${({ theme }) => theme.colors.success};
-`
+`;
 
 const CompletionTitle = styled.h2`
   font-size: ${({ theme }) => theme.typography.sizes.xxl};
   font-weight: ${({ theme }) => theme.typography.weights.bold};
   color: ${({ theme }) => theme.colors.textPrimary};
-`
+`;
 
 const CompletionBody = styled.p`
   font-size: ${({ theme }) => theme.typography.sizes.md};
   color: ${({ theme }) => theme.colors.textSecondary};
   max-width: 400px;
   line-height: ${({ theme }) => theme.typography.lineHeights.relaxed};
-`
+`;
