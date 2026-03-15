@@ -1,5 +1,7 @@
 // ─── Common ───────────────────────────────────────────────────────────────────
 
+import { AnswerType } from "./dag.types"
+
 export interface MessageResponse {
   message: string
 }
@@ -339,6 +341,7 @@ export interface SessionCurrentNode {
   mediaUrl: string | null
   options: ContentOptionDto[]
   offers: SessionNodeOffer[]
+  answerType: AnswerType
 }
 
 /** Unified session response shape returned by start, answer, back, and get endpoints */

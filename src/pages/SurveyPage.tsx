@@ -33,7 +33,7 @@ function sessionNodeToQuestion(node: SessionCurrentNode): QuestionNodeData & { m
     type: NodeType.Question,
     questionText: node.title ?? '',
     attribute: (node.attributeKey ?? 'goal') as QuestionNodeData['attribute'],
-    answerType: AnswerType.SingleChoice,
+    answerType: node.answerType,
     options: (node.options ?? []).map((o) => ({
       id: o.id,
       label: o.label,
@@ -111,7 +111,7 @@ export function SurveyPage() {
 
     startSession({ flowId: surveyId })
       .then((resp) => {
-        console.log(resp);
+        console.log(resp, ' => start session response');
         
         setSessionId(resp.sessionId)
         setCurrentNode(resp.currentNode)

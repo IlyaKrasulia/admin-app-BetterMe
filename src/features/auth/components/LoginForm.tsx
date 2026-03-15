@@ -17,7 +17,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const { mutate, isPending } = useLogin();
-  const enterDemo = useDemoLogin();
+  // const enterDemo = useDemoLogin(); 
 
   const {
     register,
@@ -61,9 +61,6 @@ export function LoginForm() {
           error={errors.password?.message}
           {...register("password")}
         />
-        <ForgotLink style={{ display: "block", marginTop: 6 }}>
-          Forgot password?
-        </ForgotLink>
       </motion.div>
 
       <motion.div
@@ -75,29 +72,6 @@ export function LoginForm() {
           {isPending ? "Signing in…" : "Sign in"}
         </Button>
       </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <Divider>or</Divider>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
-      >
-        <DemoButton
-          type="button"
-          whileTap={{ scale: 0.98 }}
-          onClick={enterDemo}
-        >
-          <Zap size={15} />
-          Continue with Demo (no backend needed)
-        </DemoButton>
-      </motion.div>
     </Form>
   );
 }
@@ -108,53 +82,3 @@ const Form = styled.form`
   gap: 18px;
 `;
 
-const ForgotLink = styled.a`
-  font-size: ${({ theme }) => theme.typography.sizes.sm};
-  color: ${({ theme }) => theme.colors.accent};
-  text-align: right;
-  cursor: pointer;
-  transition: opacity ${({ theme }) => theme.transitions.fast};
-  &:hover {
-    opacity: 0.8;
-  }
-`;
-
-const Divider = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: ${({ theme }) => theme.colors.textTertiary};
-  font-size: ${({ theme }) => theme.typography.sizes.sm};
-
-  &::before,
-  &::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: ${({ theme }) => theme.colors.border};
-  }
-`;
-
-const DemoButton = styled(motion.button)`
-  width: 100%;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1.5px dashed ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.radii.md};
-  background: ${({ theme }) => theme.colors.bgElevated};
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: ${({ theme }) => theme.typography.sizes.sm};
-  font-weight: ${({ theme }) => theme.typography.weights.medium};
-  font-family: ${({ theme }) => theme.typography.fontFamily};
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.transitions.fast};
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.accent};
-    color: ${({ theme }) => theme.colors.accent};
-    background: ${({ theme }) => theme.colors.accentLight};
-  }
-`;
