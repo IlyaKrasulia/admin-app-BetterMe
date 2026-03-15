@@ -41,6 +41,10 @@ export interface QuestionNodeData {
   attribute: AttributeKey
   answerType: AnswerType
   options: AnswerOption[]
+  /** Slider lower bound (only used when answerType is Slider) */
+  min?: number
+  /** Slider upper bound (only used when answerType is Slider) */
+  max?: number
 }
 
 export interface InfoNodeData {

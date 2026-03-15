@@ -87,11 +87,7 @@ const answerTypeOptions = Object.values(AnswerType).map((v) => ({
 
 function QuestionProperties({ node }: { node: Node<DagNodeData> }) {
   const updateNodeData = useDagStore((s) => s.updateNodeData);
-  const data =
-    node.data as import("@shared/types/dag.types").QuestionNodeData & {
-      min?: number;
-      max?: number;
-    };
+  const data = node.data as import("@shared/types/dag.types").QuestionNodeData;
 
   const addOption = () => {
     const currentOptions = data.options ?? [];
@@ -123,9 +119,6 @@ function QuestionProperties({ node }: { node: Node<DagNodeData> }) {
       ),
     } as Partial<DagNodeData>);
   };
-  
-  console.log(data, ' => data');
-  
 
   return (
     <>

@@ -84,6 +84,32 @@ describe('flowNodeToNode', () => {
     }
   })
 
+  it('reads answerType from description JSON when present', () => {
+    const dto = { ...questionDto, description: JSON.stringify({ answerType: AnswerType.MultipleChoice }) }
+    const node = flowNodeToNode(dto)
+    if (node.data.type === NodeType.Question) {
+      expect(node.data.answerType).toBe(AnswerType.MultipleChoice)
+    }
+  })
+
+  it('reads slider min/max from description JSON', () => {
+    const dto = { ...questionDto, description: JSON.stringify({ answerType: AnswerType.Slider, min: 1, max: 100 }) }
+    const node = flowNodeToNode(dto)
+    if (node.data.type === NodeType.Question) {
+      expect(node.data.answerType).toBe(AnswerType.Slider)
+      expect(node.data.min).toBe(1)
+      expect(node.data.max).toBe(100)
+    }
+  })
+
+  it('falls back to SingleChoice when description is plain text', () => {
+    const dto = { ...questionDto, description: 'just a string' }
+    const node = flowNodeToNode(dto)
+    if (node.data.type === NodeType.Question) {
+      expect(node.data.answerType).toBe(AnswerType.SingleChoice)
+    }
+  })
+
   it('falls back to AttributeKey.Goal when attributeKey is null', () => {
     const node = flowNodeToNode({ ...questionDto, attributeKey: null })
     if (node.data.type === NodeType.Question) {
@@ -189,6 +215,9 @@ describe('nodeToCreateRequest', () => {
     expect(req.title).toBe('How old are you?')
     expect(req.positionX).toBe(50)
     expect(req.positionY).toBe(75)
+    expect(req.description).toBeDefined()
+    const meta = JSON.parse(req.description!)
+    expect(meta.answerType).toBe('single_choice')
   })
 
   it('builds a CreateNodeRequest from an info node', () => {
@@ -243,5 +272,30 @@ describe('nodeToUpdateRequest', () => {
     }
     const req = nodeToUpdateRequest(node)
     expect(req.title).toBe('Updated question?')
+    expect(req.description).toBeDefined()
+    const meta = JSON.parse(req.description!)
+    expect(meta.answerType).toBe('single_choice')
+  })
+
+  it('includes slider min/max in update request description', () => {
+    const node: Node<DagNodeData> = {
+      id: 'n1',
+      type: NodeType.Question,
+      position: { x: 0, y: 0 },
+      data: {
+        type: NodeType.Question,
+        questionText: 'Rate your stress',
+        attribute: AttributeKey.StressLevel,
+        answerType: AnswerType.Slider,
+        options: [],
+        min: 0,
+        max: 10,
+      },
+    }
+    const req = nodeToUpdateRequest(node)
+    const meta = JSON.parse(req.description!)
+    expect(meta.answerType).toBe('slider')
+    expect(meta.min).toBe(0)
+    expect(meta.max).toBe(10)
   })
 })

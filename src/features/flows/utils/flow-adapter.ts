@@ -22,6 +22,8 @@ import type {
   EdgeOperator,
 } from "@shared/types/dag.types";
 
+const VALID_ANSWER_TYPES = new Set<string>(Object.values(AnswerType));
+
 // ─── API → DAG ────────────────────────────────────────────────────────────────
 
 /**
@@ -44,17 +46,43 @@ export function flowNodeToNode(dto: FlowNodeDto): Node<DagNodeData> {
   let data: DagNodeData;
   switch (dto.type) {
     case "Question": {
+      // answerType, min and max are serialised into `description` as JSON
+      // because the backend node model has no dedicated columns for them.
+      let answerType: AnswerType = AnswerType.SingleChoice;
+      let min: number | undefined;
+      let max: number | undefined;
+      if (dto.description) {
+        try {
+          const meta = JSON.parse(dto.description) as {
+            answerType?: string;
+            min?: number;
+            max?: number;
+          };
+          if (
+            typeof meta.answerType === "string" &&
+            VALID_ANSWER_TYPES.has(meta.answerType)
+          ) {
+            answerType = meta.answerType as AnswerType;
+          }
+          if (typeof meta.min === "number") min = meta.min;
+          if (typeof meta.max === "number") max = meta.max;
+        } catch {
+          // description is plain text (old data) — leave defaults
+        }
+      }
       const d: QuestionNodeData = {
         type: NodeType.Question,
         questionText: dto.title,
         attribute: (dto.attributeKey as AttributeKey) ?? AttributeKey.Goal,
-        answerType: AnswerType.SingleChoice,
+        answerType,
         options: (dto.options ?? []).map((o) => ({
           id: o.id,
           label: o.label,
           value: o.value,
         })),
       };
+      if (min !== undefined) d.min = min;
+      if (max !== undefined) d.max = max;
       data = d;
       break;
     }
@@ -223,12 +251,21 @@ export function nodeToCreateRequest(
   } as const;
 
   switch (data.type) {
-    case NodeType.Question:
+    case NodeType.Question: {
+      // answerType, min and max are serialised into `description` as JSON
+      // because the backend node model has no dedicated columns for them.
+      const meta: { answerType: string; min?: number; max?: number } = {
+        answerType: data.answerType,
+      };
+      if (data.min !== undefined) meta.min = data.min;
+      if (data.max !== undefined) meta.max = data.max;
       return {
         ...base,
         title: data.questionText,
         attributeKey: data.attribute,
+        description: JSON.stringify(meta),
       };
+    }
     case NodeType.Info:
       return {
         ...base,
@@ -262,11 +299,18 @@ export function nodeToUpdateRequest(
   const { data } = node;
 
   switch (data.type) {
-    case NodeType.Question:
+    case NodeType.Question: {
+      const meta: { answerType: string; min?: number; max?: number } = {
+        answerType: data.answerType,
+      };
+      if (data.min !== undefined) meta.min = data.min;
+      if (data.max !== undefined) meta.max = data.max;
       return {
         title: data.questionText,
         attributeKey: data.attribute,
+        description: JSON.stringify(meta),
       };
+    }
     case NodeType.Info:
       return {
         title: data.title,
