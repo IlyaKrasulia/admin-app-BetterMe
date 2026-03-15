@@ -313,41 +313,48 @@ export interface PublishedFlowDto {
 
 // ─── User Quiz / Sessions ─────────────────────────────────────────────────────
 
-export type SessionStatus = 'in_progress' | 'completed' | 'abandoned'
+export type SessionStatus = 'InProgress' | 'Completed' | 'Abandoned'
+
+/** Backend returns PascalCase node types in session responses */
+export type SessionNodeType = 'Question' | 'InfoPage' | 'Offer'
+
+/** Offer object embedded inside currentNode.offers[] from the backend */
+export interface SessionNodeOffer {
+  id: string
+  name: string
+  slug: string
+  price: number
+  imageUrl: string | null
+  ctaText: string | null
+  ctaUrl: string | null
+  isPrimary: boolean
+}
 
 export interface SessionCurrentNode {
   id: string
-  type: FlowNodeType
-  attributeKey?: string
-  title?: string
-  description?: string | null
-  mediaUrl?: string | null
-  options?: ContentOptionDto[]
+  type: SessionNodeType
+  attributeKey: string | null
+  title: string | null
+  description: string | null
+  mediaUrl: string | null
+  options: ContentOptionDto[]
+  offers: SessionNodeOffer[]
 }
 
-export interface SessionProgress {
-  answeredCount: number
-}
-
-export interface SessionOfferItem {
-  isPrimary: boolean
-  offer: OfferDto
-}
-
-export interface StartSessionResponse {
+/** Unified session response shape returned by start, answer, back, and get endpoints */
+export interface SessionResponse {
   sessionId: string
   flowId: string
+  status: SessionStatus
+  startedAt: string
+  completedAt: string | null
   currentNode: SessionCurrentNode
-  progress: SessionProgress
 }
 
-export interface SubmitAnswerResponse {
-  sessionId: string
-  currentNode: SessionCurrentNode
-  offers?: SessionOfferItem[]
-  progress: SessionProgress
-  status?: SessionStatus
-}
+// Keep aliases for backward compatibility with hooks
+export type StartSessionResponse = SessionResponse
+export type SubmitAnswerResponse = SessionResponse
+export type BackResponse = SessionResponse
 
 export interface SessionAnswer {
   attributeKey: string
@@ -355,20 +362,8 @@ export interface SessionAnswer {
   answeredAt: string
 }
 
-export interface GetSessionResponse {
-  sessionId: string
-  flowId: string
-  status: SessionStatus
-  currentNode: SessionCurrentNode
+export interface GetSessionResponse extends SessionResponse {
   answers: SessionAnswer[]
-  offers: SessionOfferItem[] | null
-  progress: SessionProgress
-}
-
-export interface BackResponse {
-  sessionId: string
-  currentNode: SessionCurrentNode
-  progress: SessionProgress
 }
 
 // Requests

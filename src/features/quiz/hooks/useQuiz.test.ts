@@ -31,19 +31,22 @@ function createWrapper() {
 
 const currentNode = {
   id: 'n1',
-  type: 'question' as const,
+  type: 'Question' as const,
   attributeKey: 'goal',
   title: 'What is your goal?',
   description: null,
   mediaUrl: null,
   options: [],
+  offers: [],
 }
 
 const sessionResponse = {
   sessionId: 's1',
   flowId: 'f1',
+  status: 'InProgress' as const,
+  startedAt: '2026-03-15T00:00:00Z',
+  completedAt: null,
   currentNode,
-  progress: { answeredCount: 0 },
 }
 
 beforeEach(() => {
@@ -63,7 +66,7 @@ describe('useStartSession', () => {
 
 describe('useSubmitAnswer', () => {
   it('calls submitAnswer with sessionId and data', async () => {
-    const response = { ...sessionResponse, progress: { answeredCount: 1 } }
+    const response = { ...sessionResponse, status: 'InProgress' as const }
     vi.mocked(quizApi.submitAnswer).mockResolvedValueOnce(response)
     const { result } = renderHook(() => useSubmitAnswer(), { wrapper: createWrapper() })
     result.current.mutate({ sessionId: 's1', data: { nodeId: 'n1', value: 'weight_loss' } })
@@ -77,11 +80,11 @@ describe('useSession', () => {
     const sessionState = {
       sessionId: 's1',
       flowId: 'f1',
-      status: 'in_progress' as const,
+      status: 'InProgress' as const,
+      startedAt: '2026-03-15T00:00:00Z',
+      completedAt: null,
       currentNode,
       answers: [],
-      offers: null,
-      progress: { answeredCount: 0 },
     }
     vi.mocked(quizApi.getSession).mockResolvedValueOnce(sessionState)
     const { result } = renderHook(() => useSession('s1'), { wrapper: createWrapper() })

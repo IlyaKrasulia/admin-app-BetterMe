@@ -3,10 +3,9 @@ import styled, { createGlobalStyle } from 'styled-components'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, CheckCircle2 } from 'lucide-react'
-import { NodeType, AttributeKey, AnswerType } from '@shared/types/dag.types'
+import { NodeType, AnswerType } from '@shared/types/dag.types'
 import type { QuestionNodeData, InfoNodeData, OfferNodeData } from '@shared/types/dag.types'
-import type { SessionCurrentNode, SessionOfferItem } from '@shared/types/api.types'
-import { useContentFlow } from '@features/content/hooks/useContent'
+import type { SessionCurrentNode, SessionNodeOffer } from '@shared/types/api.types'
 import {
   useStartSession,
   useSubmitAnswer,
@@ -29,17 +28,18 @@ const cardVariants = {
 
 // ─── Adapter: SessionCurrentNode → step component data ───────────────────────
 
-function sessionNodeToQuestion(node: SessionCurrentNode): QuestionNodeData {
+function sessionNodeToQuestion(node: SessionCurrentNode): QuestionNodeData & { mediaUrl?: string | null } {
   return {
     type: NodeType.Question,
     questionText: node.title ?? '',
-    attribute: (node.attributeKey as AttributeKey) ?? AttributeKey.Goal,
+    attribute: (node.attributeKey ?? 'goal') as QuestionNodeData['attribute'],
     answerType: AnswerType.SingleChoice,
     options: (node.options ?? []).map((o) => ({
       id: o.id,
       label: o.label,
       value: o.value,
     })),
+    mediaUrl: node.mediaUrl,
   }
 }
 
@@ -54,15 +54,16 @@ function sessionNodeToInfo(node: SessionCurrentNode): InfoNodeData {
 
 function sessionNodeToOffer(
   node: SessionCurrentNode,
-  offers: SessionOfferItem[]
-): OfferNodeData {
-  const primary = offers.find((o) => o.isPrimary)?.offer ?? offers[0]?.offer
+  offers: SessionNodeOffer[]
+): OfferNodeData & { offers: SessionNodeOffer[] } {
+  const primary = offers.find((o) => o.isPrimary) ?? offers[0]
   return {
     type: NodeType.Offer,
     headline: node.title ?? (primary?.name ?? 'Special Offer'),
-    description: node.description ?? (primary?.description ?? ''),
-    ctaText: 'Get Started',
+    description: node.description ?? '',
+    ctaText: primary?.ctaText ?? 'Get Started',
     price: primary?.price,
+    offers,
   }
 }
 
@@ -76,8 +77,6 @@ export function SurveyPage() {
   const surveyId = params.surveyId ?? ''
 
   // ─── API hooks ────────────────────────────────────────────────────────────
-  const { data: contentFlow, isLoading: isFlowLoading, isError: isFlowError } =
-    useContentFlow(surveyId)
   const { mutateAsync: startSession } = useStartSession()
   const { mutateAsync: submitAnswer } = useSubmitAnswer()
   const { mutateAsync: goBackApi } = useGoBack()
@@ -86,21 +85,21 @@ export function SurveyPage() {
   // ─── State ────────────────────────────────────────────────────────────────
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [currentNode, setCurrentNode] = useState<SessionCurrentNode | null>(null)
-  const [currentOffers, setCurrentOffers] = useState<SessionOfferItem[]>([])
   const [progressPct, setProgressPct] = useState(0)
   const [pageState, setPageState] = useState<PageState>('loading')
   const [direction, setDirection] = useState<1 | -1>(1)
+  const [stepCount, setStepCount] = useState(0)
   const [canGoBack, setCanGoBack] = useState(false)
+  const [flowName, setFlowName] = useState<string>('')
 
-  // ─── Start session once flow data is confirmed to exist ───────────────────
+  // ─── Start session once surveyId is available ─────────────────────────────
   const hasStartedRef = useRef(false)
   useEffect(() => {
-    if (!surveyId || isFlowLoading) return
-    if (isFlowError || !contentFlow) {
+    if (!surveyId) {
       setPageState('error')
       return
     }
-    // Guard against React strict-mode double invocation and fast re-renders
+    // Guard against React strict-mode double invocation
     if (hasStartedRef.current) return
     hasStartedRef.current = true
 
@@ -108,13 +107,15 @@ export function SurveyPage() {
       .then((resp) => {
         setSessionId(resp.sessionId)
         setCurrentNode(resp.currentNode)
+        setFlowName(resp.flowId)
         setProgressPct(0)
-        setPageState('survey')
+        setStepCount(0)
+        setPageState(resp.status === 'Completed' ? 'completed' : 'survey')
         setCanGoBack(false)
       })
       .catch(() => setPageState('error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surveyId, isFlowLoading, isFlowError])
+  }, [surveyId])
 
   // ─── Answer handler ────────────────────────────────────────────────────────
 
@@ -129,24 +130,24 @@ export function SurveyPage() {
             value: Array.isArray(value) ? value.join(',') : value,
           },
         })
+        const newStepCount = stepCount + 1
         setDirection(1)
         setCurrentNode(resp.currentNode)
-        setCurrentOffers(resp.offers ?? [])
-        const total = contentFlow?.nodes.length ?? 1
-        setProgressPct(
-          resp.status === 'completed'
-            ? 100
-            : Math.min(Math.round((resp.progress.answeredCount / total) * 100), 95)
-        )
+        setStepCount(newStepCount)
         setCanGoBack(true)
-        if (resp.status === 'completed') {
+
+        if (resp.status === 'Completed') {
+          setProgressPct(100)
           setPageState('completed')
+        } else {
+          // Estimate progress: cap at 95% until completed
+          setProgressPct(Math.min(Math.round((newStepCount / Math.max(newStepCount + 2, 5)) * 100), 95))
         }
       } catch {
         // Non-fatal: keep the current node displayed
       }
     },
-    [sessionId, currentNode, submitAnswer, contentFlow]
+    [sessionId, currentNode, submitAnswer, stepCount]
   )
 
   // ─── Info continue ─────────────────────────────────────────────────────────
@@ -158,23 +159,22 @@ export function SurveyPage() {
         sessionId,
         data: { nodeId: currentNode.id, value: '' },
       })
+      const newStepCount = stepCount + 1
       setDirection(1)
       setCurrentNode(resp.currentNode)
-      setCurrentOffers(resp.offers ?? [])
-      const total = contentFlow?.nodes.length ?? 1
-      setProgressPct(
-        resp.status === 'completed'
-          ? 100
-          : Math.min(Math.round((resp.progress.answeredCount / total) * 100), 95)
-      )
+      setStepCount(newStepCount)
       setCanGoBack(true)
-      if (resp.status === 'completed') {
+
+      if (resp.status === 'Completed') {
+        setProgressPct(100)
         setPageState('completed')
+      } else {
+        setProgressPct(Math.min(Math.round((newStepCount / Math.max(newStepCount + 2, 5)) * 100), 95))
       }
     } catch {
       // Non-fatal
     }
-  }, [sessionId, currentNode, submitAnswer, contentFlow])
+  }, [sessionId, currentNode, submitAnswer, stepCount])
 
   // ─── Go back ───────────────────────────────────────────────────────────────
 
@@ -182,18 +182,23 @@ export function SurveyPage() {
     if (!sessionId || !canGoBack) return
     try {
       const resp = await goBackApi(sessionId)
+      const newStepCount = Math.max(stepCount - 1, 0)
       setDirection(-1)
       setCurrentNode(resp.currentNode)
-      setCurrentOffers([])
-      const total = contentFlow?.nodes.length ?? 1
+      setStepCount(newStepCount)
+      setCanGoBack(newStepCount > 0)
       setProgressPct(
-        Math.min(Math.round((resp.progress.answeredCount / total) * 100), 95)
+        newStepCount === 0
+          ? 0
+          : Math.min(Math.round((newStepCount / Math.max(newStepCount + 2, 5)) * 100), 95)
       )
-      setCanGoBack(resp.progress.answeredCount > 0)
+      if (pageState === 'completed') {
+        setPageState('survey')
+      }
     } catch {
       // Non-fatal
     }
-  }, [sessionId, canGoBack, goBackApi, contentFlow])
+  }, [sessionId, canGoBack, goBackApi, stepCount, pageState])
 
   // ─── Offer accept ──────────────────────────────────────────────────────────
 
@@ -213,7 +218,7 @@ export function SurveyPage() {
 
   // ─── Loading / error / empty states ───────────────────────────────────────
 
-  if (pageState === 'loading' || isFlowLoading) {
+  if (pageState === 'loading') {
     return (
       <PageShell>
         <SurveyPageGlobal />
@@ -224,7 +229,7 @@ export function SurveyPage() {
     )
   }
 
-  if (pageState === 'error' || isFlowError || !contentFlow) {
+  if (pageState === 'error') {
     return (
       <PageShell>
         <SurveyPageGlobal />
@@ -243,19 +248,6 @@ export function SurveyPage() {
     )
   }
 
-  if (contentFlow.nodes.length === 0) {
-    return (
-      <PageShell>
-        <SurveyPageGlobal />
-        <CenterBlock>
-          <BigEmoji>📋</BigEmoji>
-          <StateTitle>Empty survey</StateTitle>
-          <StateBody>This survey has no questions yet. Check back later.</StateBody>
-        </CenterBlock>
-      </PageShell>
-    )
-  }
-
   if (!currentNode) {
     return (
       <PageShell>
@@ -266,6 +258,10 @@ export function SurveyPage() {
       </PageShell>
     )
   }
+
+  // ─── Determine if we should show the offer / completion screen ─────────
+  const isOffer = currentNode.type === 'Offer' && pageState === 'completed'
+  const showCompletionOnly = pageState === 'completed' && currentNode.type !== 'Offer'
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -282,7 +278,7 @@ export function SurveyPage() {
         >
           <ArrowLeft size={18} />
         </BackBtn>
-        <BrandName>🌿 {contentFlow.name}</BrandName>
+        <BrandName>🌿 Wellness Survey</BrandName>
         {/* spacer to centre the title */}
         <div style={{ width: 32 }} />
       </TopBar>
@@ -299,7 +295,7 @@ export function SurveyPage() {
       {/* ─── Content ─────────────────────────────────────────────────── */}
       <ContentArea>
         <AnimatePresence mode="wait" initial={false}>
-          {pageState === 'completed' ? (
+          {showCompletionOnly ? (
             <Card
               key="completion"
               variants={cardVariants}
@@ -338,26 +334,26 @@ export function SurveyPage() {
               exit="exit"
               transition={{ duration: 0.25, ease: 'easeInOut' }}
             >
-              {currentNode.type === 'question' && (
+              {currentNode.type === 'Question' && (
                 <QuestionStep
                   data={sessionNodeToQuestion(currentNode)}
                   onAnswer={handleAnswer}
                 />
               )}
 
-              {currentNode.type === 'info_page' && (
+              {currentNode.type === 'InfoPage' && (
                 <InfoStep
                   data={sessionNodeToInfo(currentNode)}
                   onContinue={handleInfoContinue}
                 />
               )}
 
-              {currentNode.type === 'offer' && (
+              {currentNode.type === 'Offer' && (
                 <OfferStep
-                  data={sessionNodeToOffer(currentNode, currentOffers)}
+                  data={sessionNodeToOffer(currentNode, currentNode.offers ?? [])}
                   onAccept={() => {
-                    const primaryOffer = currentOffers.find((o) => o.isPrimary)?.offer
-                    handleOfferAccept(primaryOffer?.id)
+                    const primary = (currentNode.offers ?? []).find((o) => o.isPrimary) ?? (currentNode.offers ?? [])[0]
+                    handleOfferAccept(primary?.id)
                   }}
                 />
               )}

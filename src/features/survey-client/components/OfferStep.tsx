@@ -2,16 +2,19 @@ import styled from 'styled-components'
 import { motion } from 'framer-motion'
 import { DollarSign, Zap } from 'lucide-react'
 import type { OfferNodeData } from '@shared/types/dag.types'
+import type { SessionNodeOffer } from '@shared/types/api.types'
 import { Button } from '@shared/ui/Button'
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface OfferStepProps {
-  data: OfferNodeData
+  data: OfferNodeData & { offers?: SessionNodeOffer[] }
   onAccept: () => void
 }
 
 export function OfferStep({ data, onAccept }: OfferStepProps) {
+  const primary = data.offers?.find((o) => o.isPrimary) ?? data.offers?.[0]
+
   return (
     <Wrapper>
       <BadgeRow
@@ -24,6 +27,16 @@ export function OfferStep({ data, onAccept }: OfferStepProps) {
           Your personalised plan
         </SpecialBadge>
       </BadgeRow>
+
+      {primary?.imageUrl && (
+        <OfferImageWrapper
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.08 }}
+        >
+          <OfferImage src={primary.imageUrl} alt={primary.name} />
+        </OfferImageWrapper>
+      )}
 
       <Headline
         initial={{ opacity: 0, y: 10 }}
@@ -98,6 +111,19 @@ const SpecialBadge = styled.div`
   font-weight: ${({ theme }) => theme.typography.weights.semibold};
   text-transform: uppercase;
   letter-spacing: 0.05em;
+`
+
+const OfferImageWrapper = styled(motion.div)`
+  width: 100%;
+  display: flex;
+  justify-content: center;
+`
+
+const OfferImage = styled.img`
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: ${({ theme }) => theme.radii.md};
+  object-fit: contain;
 `
 
 const Headline = styled(motion.h2)`
