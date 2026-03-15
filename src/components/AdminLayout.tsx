@@ -6,27 +6,26 @@ import { ThemeSwitcher } from "./ThemeSwitcher";
 import { Button } from "@shared/ui/Button";
 import { useAuthStore } from "@features/auth/store/auth.store";
 import { useLogout } from "@features/auth/hooks/useAuth";
+import logoLight from "@assets/images/logo-white.svg";
+import logoDark from "@assets/images/logo-black.svg";
+import { useAppTheme } from "@/shared/theme/ThemeProvider";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { mode } = useAppTheme();
+
   const user = useAuthStore((s) => s.user);
   const { mutate: logout, isPending } = useLogout();
   const routerState = useRouterState();
-  const pathname = routerState.location.pathname;
+
+  console.log(mode);
+  
 
   return (
     <Layout>
       <Navbar>
         <Logo to="/dashboard">
-          <LogoMark>🌿</LogoMark>
-          <LogoText>Wellness Admin</LogoText>
+          <img src={mode === "dark" ? logoLight : logoDark} alt="Logo" />
         </Logo>
-
-        <NavLinks>
-          <NavLink to="/dashboard" $active={pathname === "/dashboard"}>
-            <LayoutGrid size={15} />
-            Surveys
-          </NavLink>
-        </NavLinks>
 
         <Spacer />
 
@@ -81,51 +80,6 @@ const Logo = styled(Link)`
   align-items: center;
   gap: 10px;
   text-decoration: none;
-`;
-
-const LogoMark = styled.div`
-  width: 32px;
-  height: 32px;
-  background: ${({ theme }) => theme.colors.accent};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-`;
-
-const LogoText = styled.span`
-  font-size: ${({ theme }) => theme.typography.sizes.md};
-  font-weight: ${({ theme }) => theme.typography.weights.semibold};
-  color: ${({ theme }) => theme.colors.textPrimary};
-`;
-
-const NavLinks = styled.nav`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 16px;
-`;
-
-const NavLink = styled(Link)<{ $active?: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
-  border-radius: ${({ theme }) => theme.radii.md};
-  font-size: ${({ theme }) => theme.typography.sizes.sm};
-  font-weight: ${({ theme }) => theme.typography.weights.medium};
-  color: ${({ $active, theme }) =>
-    $active ? theme.colors.accent : theme.colors.textSecondary};
-  background: ${({ $active, theme }) =>
-    $active ? theme.colors.accentLight : "transparent"};
-  transition: all ${({ theme }) => theme.transitions.fast};
-  text-decoration: none;
-
-  &:hover {
-    color: ${({ theme }) => theme.colors.textPrimary};
-    background: ${({ theme }) => theme.colors.bgElevated};
-  }
 `;
 
 const Spacer = styled.div`
