@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:course-decider-betterme-a2fb7653487d.herokuapp.com)",
+      "Bash(find C:UsersproduDownloadsadmin-app-BetterMe-mainadmin-app-BetterMe-main/src -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx \\\\\\))",
+      "Bash(grep -r \"EdgePanel\\\\|EdgeSidebar\\\\|EdgeForm\" C:UsersproduDownloadsadmin-app-BetterMe-mainadmin-app-BetterMe-main/src --include=*.ts --include=*.tsx)",
+      "Bash(grep -rn \"edge\\\\.data?\\\\.condition\\\\b\\\\|data?\\\\.condition\\\\b\\\\|\\\\.condition =\\\\|condition: EdgeCondition\\\\b\\\\|import.*Operator\\\\b\" C:/Users/produ/Downloads/admin-app-BetterMe-main/admin-app-BetterMe-main/src --include=*.ts --include=*.tsx)"
+    ]
+  }
+}

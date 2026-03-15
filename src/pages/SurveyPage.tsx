@@ -1,0 +1,526 @@
+import { useState, useCallback, useEffect, useRef } from 'react'
+import styled, { createGlobalStyle } from 'styled-components'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useParams, useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { NodeType, AttributeKey, AnswerType } from '@shared/types/dag.types'
+import type { QuestionNodeData, InfoNodeData, OfferNodeData } from '@shared/types/dag.types'
+import type { SessionCurrentNode, SessionOfferItem } from '@shared/types/api.types'
+import { useContentFlow } from '@features/content/hooks/useContent'
+import {
+  useStartSession,
+  useSubmitAnswer,
+  useGoBack,
+  useRecordConversion,
+} from '@features/quiz/hooks/useQuiz'
+import { QuestionStep } from '@features/survey-client/components/QuestionStep'
+import { InfoStep } from '@features/survey-client/components/InfoStep'
+import { OfferStep } from '@features/survey-client/components/OfferStep'
+import { Button } from '@shared/ui/Button'
+import { Spinner } from '@shared/ui/Spinner'
+
+// ─── Card animation variants ──────────────────────────────────────────────────
+
+const cardVariants = {
+  enter: { opacity: 0, x: 40 },
+  center: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -40 },
+}
+
+// ─── Adapter: SessionCurrentNode → step component data ───────────────────────
+
+function sessionNodeToQuestion(node: SessionCurrentNode): QuestionNodeData {
+  return {
+    type: NodeType.Question,
+    questionText: node.title ?? '',
+    attribute: (node.attributeKey as AttributeKey) ?? AttributeKey.Goal,
+    answerType: AnswerType.SingleChoice,
+    options: (node.options ?? []).map((o) => ({
+      id: o.id,
+      label: o.label,
+      value: o.value,
+    })),
+  }
+}
+
+function sessionNodeToInfo(node: SessionCurrentNode): InfoNodeData {
+  return {
+    type: NodeType.Info,
+    title: node.title ?? '',
+    body: node.description ?? '',
+    imageUrl: node.mediaUrl ?? undefined,
+  }
+}
+
+function sessionNodeToOffer(
+  node: SessionCurrentNode,
+  offers: SessionOfferItem[]
+): OfferNodeData {
+  const primary = offers.find((o) => o.isPrimary)?.offer ?? offers[0]?.offer
+  return {
+    type: NodeType.Offer,
+    headline: node.title ?? (primary?.name ?? 'Special Offer'),
+    description: node.description ?? (primary?.description ?? ''),
+    ctaText: 'Get Started',
+    price: primary?.price,
+  }
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+type PageState = 'loading' | 'survey' | 'completed' | 'error'
+
+export function SurveyPage() {
+  const navigate = useNavigate()
+  const params = useParams({ strict: false }) as { surveyId?: string }
+  const surveyId = params.surveyId ?? ''
+
+  // ─── API hooks ────────────────────────────────────────────────────────────
+  const { data: contentFlow, isLoading: isFlowLoading, isError: isFlowError } =
+    useContentFlow(surveyId)
+  const { mutateAsync: startSession } = useStartSession()
+  const { mutateAsync: submitAnswer } = useSubmitAnswer()
+  const { mutateAsync: goBackApi } = useGoBack()
+  const { mutateAsync: recordConversion } = useRecordConversion()
+
+  // ─── State ────────────────────────────────────────────────────────────────
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [currentNode, setCurrentNode] = useState<SessionCurrentNode | null>(null)
+  const [currentOffers, setCurrentOffers] = useState<SessionOfferItem[]>([])
+  const [progressPct, setProgressPct] = useState(0)
+  const [pageState, setPageState] = useState<PageState>('loading')
+  const [direction, setDirection] = useState<1 | -1>(1)
+  const [canGoBack, setCanGoBack] = useState(false)
+
+  // ─── Start session once flow data is confirmed to exist ───────────────────
+  const hasStartedRef = useRef(false)
+  useEffect(() => {
+    if (!surveyId || isFlowLoading) return
+    if (isFlowError || !contentFlow) {
+      setPageState('error')
+      return
+    }
+    // Guard against React strict-mode double invocation and fast re-renders
+    if (hasStartedRef.current) return
+    hasStartedRef.current = true
+
+    startSession({ flowId: surveyId })
+      .then((resp) => {
+        setSessionId(resp.sessionId)
+        setCurrentNode(resp.currentNode)
+        setProgressPct(0)
+        setPageState('survey')
+        setCanGoBack(false)
+      })
+      .catch(() => setPageState('error'))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surveyId, isFlowLoading, isFlowError])
+
+  // ─── Answer handler ────────────────────────────────────────────────────────
+
+  const handleAnswer = useCallback(
+    async (value: string | string[]) => {
+      if (!sessionId || !currentNode) return
+      try {
+        const resp = await submitAnswer({
+          sessionId,
+          data: {
+            nodeId: currentNode.id,
+            value: Array.isArray(value) ? value.join(',') : value,
+          },
+        })
+        setDirection(1)
+        setCurrentNode(resp.currentNode)
+        setCurrentOffers(resp.offers ?? [])
+        const total = contentFlow?.nodes.length ?? 1
+        setProgressPct(
+          resp.status === 'completed'
+            ? 100
+            : Math.min(Math.round((resp.progress.answeredCount / total) * 100), 95)
+        )
+        setCanGoBack(true)
+        if (resp.status === 'completed') {
+          setPageState('completed')
+        }
+      } catch {
+        // Non-fatal: keep the current node displayed
+      }
+    },
+    [sessionId, currentNode, submitAnswer, contentFlow]
+  )
+
+  // ─── Info continue ─────────────────────────────────────────────────────────
+
+  const handleInfoContinue = useCallback(async () => {
+    if (!sessionId || !currentNode) return
+    try {
+      const resp = await submitAnswer({
+        sessionId,
+        data: { nodeId: currentNode.id, value: '' },
+      })
+      setDirection(1)
+      setCurrentNode(resp.currentNode)
+      setCurrentOffers(resp.offers ?? [])
+      const total = contentFlow?.nodes.length ?? 1
+      setProgressPct(
+        resp.status === 'completed'
+          ? 100
+          : Math.min(Math.round((resp.progress.answeredCount / total) * 100), 95)
+      )
+      setCanGoBack(true)
+      if (resp.status === 'completed') {
+        setPageState('completed')
+      }
+    } catch {
+      // Non-fatal
+    }
+  }, [sessionId, currentNode, submitAnswer, contentFlow])
+
+  // ─── Go back ───────────────────────────────────────────────────────────────
+
+  const handleGoBack = useCallback(async () => {
+    if (!sessionId || !canGoBack) return
+    try {
+      const resp = await goBackApi(sessionId)
+      setDirection(-1)
+      setCurrentNode(resp.currentNode)
+      setCurrentOffers([])
+      const total = contentFlow?.nodes.length ?? 1
+      setProgressPct(
+        Math.min(Math.round((resp.progress.answeredCount / total) * 100), 95)
+      )
+      setCanGoBack(resp.progress.answeredCount > 0)
+    } catch {
+      // Non-fatal
+    }
+  }, [sessionId, canGoBack, goBackApi, contentFlow])
+
+  // ─── Offer accept ──────────────────────────────────────────────────────────
+
+  const handleOfferAccept = useCallback(
+    async (offerId?: string) => {
+      if (sessionId && offerId) {
+        try {
+          await recordConversion({ sessionId, data: { offerId } })
+        } catch {
+          // Non-fatal: complete even if conversion recording fails
+        }
+      }
+      setPageState('completed')
+    },
+    [sessionId, recordConversion]
+  )
+
+  // ─── Loading / error / empty states ───────────────────────────────────────
+
+  if (pageState === 'loading' || isFlowLoading) {
+    return (
+      <PageShell>
+        <SurveyPageGlobal />
+        <CenterBlock>
+          <Spinner size={32} />
+        </CenterBlock>
+      </PageShell>
+    )
+  }
+
+  if (pageState === 'error' || isFlowError || !contentFlow) {
+    return (
+      <PageShell>
+        <SurveyPageGlobal />
+        <CenterBlock>
+          <BigEmoji>🔍</BigEmoji>
+          <StateTitle>Survey not found</StateTitle>
+          <StateBody>
+            This survey does not exist or is not available. Please check the
+            link and try again.
+          </StateBody>
+          <Button variant="secondary" onClick={() => navigate({ to: '/dashboard' })}>
+            Back to dashboard
+          </Button>
+        </CenterBlock>
+      </PageShell>
+    )
+  }
+
+  if (contentFlow.nodes.length === 0) {
+    return (
+      <PageShell>
+        <SurveyPageGlobal />
+        <CenterBlock>
+          <BigEmoji>📋</BigEmoji>
+          <StateTitle>Empty survey</StateTitle>
+          <StateBody>This survey has no questions yet. Check back later.</StateBody>
+        </CenterBlock>
+      </PageShell>
+    )
+  }
+
+  if (!currentNode) {
+    return (
+      <PageShell>
+        <SurveyPageGlobal />
+        <CenterBlock>
+          <Spinner size={32} />
+        </CenterBlock>
+      </PageShell>
+    )
+  }
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+
+  return (
+    <PageShell>
+      <SurveyPageGlobal />
+
+      {/* ─── Top bar ─────────────────────────────────────────────────── */}
+      <TopBar>
+        <BackBtn
+          aria-label="Go back"
+          disabled={!canGoBack || pageState === 'completed'}
+          onClick={handleGoBack}
+        >
+          <ArrowLeft size={18} />
+        </BackBtn>
+        <BrandName>🌿 {contentFlow.name}</BrandName>
+        {/* spacer to centre the title */}
+        <div style={{ width: 32 }} />
+      </TopBar>
+
+      {/* ─── Progress bar ────────────────────────────────────────────── */}
+      <ProgressTrack>
+        <ProgressFill
+          animate={{ width: `${pageState === 'completed' ? 100 : progressPct}%` }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+          style={{ width: 0 }}
+        />
+      </ProgressTrack>
+
+      {/* ─── Content ─────────────────────────────────────────────────── */}
+      <ContentArea>
+        <AnimatePresence mode="wait" initial={false}>
+          {pageState === 'completed' ? (
+            <Card
+              key="completion"
+              variants={cardVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              custom={direction}
+            >
+              <CompletionWrapper
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.35 }}
+              >
+                <CompletionIcon
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.1, type: 'spring', stiffness: 260, damping: 18 }}
+                >
+                  <CheckCircle2 size={64} />
+                </CompletionIcon>
+                <CompletionTitle>All done! 🎉</CompletionTitle>
+                <CompletionBody>
+                  Thank you for completing the survey. Your personalised
+                  recommendations have been saved — good luck on your wellness journey!
+                </CompletionBody>
+              </CompletionWrapper>
+            </Card>
+          ) : (
+            <Card
+              key={currentNode.id}
+              custom={direction}
+              variants={cardVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+            >
+              {currentNode.type === 'question' && (
+                <QuestionStep
+                  data={sessionNodeToQuestion(currentNode)}
+                  onAnswer={handleAnswer}
+                />
+              )}
+
+              {currentNode.type === 'info_page' && (
+                <InfoStep
+                  data={sessionNodeToInfo(currentNode)}
+                  onContinue={handleInfoContinue}
+                />
+              )}
+
+              {currentNode.type === 'offer' && (
+                <OfferStep
+                  data={sessionNodeToOffer(currentNode, currentOffers)}
+                  onAccept={() => {
+                    const primaryOffer = currentOffers.find((o) => o.isPrimary)?.offer
+                    handleOfferAccept(primaryOffer?.id)
+                  }}
+                />
+              )}
+            </Card>
+          )}
+        </AnimatePresence>
+      </ContentArea>
+    </PageShell>
+  )
+}
+
+
+
+// ─── Global scroll reset for the survey page ─────────────────────────────────
+const SurveyPageGlobal = createGlobalStyle`
+  body { overflow-y: auto; }
+`
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+
+const PageShell = styled.div`
+  min-height: 100vh;
+  background: ${({ theme }) => theme.colors.bg};
+  display: flex;
+  flex-direction: column;
+`
+
+const TopBar = styled.header`
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: ${({ theme }) => theme.colors.bg};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`
+
+const BrandName = styled.span`
+  font-size: ${({ theme }) => theme.typography.sizes.md};
+  font-weight: ${({ theme }) => theme.typography.weights.semibold};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  flex: 1;
+  text-align: center;
+`
+
+const BackBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  transition: background ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.bgElevated};
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+`
+
+// ─── Progress bar ─────────────────────────────────────────────────────────────
+
+const ProgressTrack = styled.div`
+  height: 3px;
+  background: ${({ theme }) => theme.colors.bgElevated};
+  width: 100%;
+`
+
+const ProgressFill = styled(motion.div)`
+  height: 100%;
+  background: ${({ theme }) => theme.colors.accent};
+  border-radius: 0 2px 2px 0;
+`
+
+// ─── Content area ─────────────────────────────────────────────────────────────
+
+const ContentArea = styled.main`
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 24px 80px;
+`
+
+const Card = styled(motion.div)`
+  background: ${({ theme }) => theme.colors.bgSurface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.xl};
+  padding: 40px 40px;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: ${({ theme }) => theme.shadows.md};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    padding: 28px 20px;
+  }
+`
+
+// ─── Error / Not-found states ─────────────────────────────────────────────────
+
+const CenterBlock = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px 24px;
+  text-align: center;
+`
+
+const BigEmoji = styled.div`
+  font-size: 56px;
+`
+
+const StateTitle = styled.h1`
+  font-size: ${({ theme }) => theme.typography.sizes.xl};
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+  color: ${({ theme }) => theme.colors.textPrimary};
+`
+
+const StateBody = styled.p`
+  font-size: ${({ theme }) => theme.typography.sizes.md};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  max-width: 360px;
+`
+
+// ─── Completion screen ────────────────────────────────────────────────────────
+
+const CompletionWrapper = styled(motion.div)`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+  padding: 16px 0;
+`
+
+const CompletionIcon = styled(motion.div)`
+  color: ${({ theme }) => theme.colors.success};
+`
+
+const CompletionTitle = styled.h2`
+  font-size: ${({ theme }) => theme.typography.sizes.xxl};
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+  color: ${({ theme }) => theme.colors.textPrimary};
+`
+
+const CompletionBody = styled.p`
+  font-size: ${({ theme }) => theme.typography.sizes.md};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  max-width: 400px;
+  line-height: ${({ theme }) => theme.typography.lineHeights.relaxed};
+`
