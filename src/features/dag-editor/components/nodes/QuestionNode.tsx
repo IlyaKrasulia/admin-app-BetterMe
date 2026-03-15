@@ -3,8 +3,9 @@ import { Handle, Position } from "reactflow";
 import type { NodeProps } from "reactflow";
 import { useTheme } from "styled-components";
 import styled from "styled-components";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, PlayCircle } from "lucide-react";
 import type { QuestionNodeData } from "@shared/types/dag.types";
+import { useDagStore } from "../../store/dag.store";
 
 const Card = styled.div<{ $selected: boolean; $accent: string }>`
   background: ${({ theme }) => theme.colors.bgSurface};
@@ -99,8 +100,25 @@ const TypeLabel = styled.span`
   color: ${({ theme }) => theme.colors.textTertiary};
   text-transform: capitalize;
 `;
+const EntryBadge = styled.div<{ $color: string }>`
+  position: absolute;
+  top: -18px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: ${({ $color }) => $color};
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 2px 7px 2px 5px;
+  border-radius: 6px 6px 0 0;
+  pointer-events: none;
+`;
 
 export const QuestionNode = memo(function QuestionNode({
+  id,
   data,
   selected,
 }: NodeProps<QuestionNodeData>) {
@@ -108,6 +126,7 @@ export const QuestionNode = memo(function QuestionNode({
 
   const theme = useTheme();
   const accent = theme.colors.nodeQuestion;
+  const isEntry = useDagStore((s) => s.entryNodeId === id);
   const visible = options.slice(0, 4);
   const extra = options.length - 4;
 
@@ -124,6 +143,12 @@ export const QuestionNode = memo(function QuestionNode({
           boxShadow: `0 0 0 2px ${accent}`,
         }}
       />
+      {isEntry && (
+        <EntryBadge $color={accent}>
+          <PlayCircle size={9} strokeWidth={2.5} />
+          ENTRY
+        </EntryBadge>
+      )}
       <Card $selected={!!selected} $accent={accent}>
         <Header $bg={accent}>
           <HelpCircle size={13} color="white" strokeWidth={2.5} />
