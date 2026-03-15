@@ -107,9 +107,12 @@ export function SurveyPage() {
     // Guard against React strict-mode double invocation
     if (hasStartedRef.current) return
     hasStartedRef.current = true
+    
 
     startSession({ flowId: surveyId })
       .then((resp) => {
+        console.log(resp);
+        
         setSessionId(resp.sessionId)
         setCurrentNode(resp.currentNode)
         setFlowName(resp.flowId)
@@ -267,6 +270,9 @@ export function SurveyPage() {
   // ─── Determine if we should show the offer / completion screen ─────────
   const isOffer = currentNode.type === 'Offer' && pageState === 'completed'
   const showCompletionOnly = pageState === 'completed' && currentNode.type !== 'Offer'
+
+  console.log(currentNode);
+  
 
   // ─── Render ────────────────────────────────────────────────────────────────
 

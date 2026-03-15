@@ -123,6 +123,9 @@ function QuestionProperties({ node }: { node: Node<DagNodeData> }) {
       ),
     } as Partial<DagNodeData>);
   };
+  
+  console.log(data, ' => data');
+  
 
   return (
     <>

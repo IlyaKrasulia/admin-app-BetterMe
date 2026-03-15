@@ -15,10 +15,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const user = useAuthStore((s) => s.user);
   const { mutate: logout, isPending } = useLogout();
-  const routerState = useRouterState();
-
-  console.log(mode);
-  
 
   return (
     <Layout>
@@ -55,9 +51,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 }
 
 const Layout = styled.div`
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+  overflow: scroll;
   background: ${({ theme }) => theme.colors.bg};
 `;
 

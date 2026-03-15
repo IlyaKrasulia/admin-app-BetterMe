@@ -24,7 +24,6 @@ export enum AnswerType {
   SingleChoice = 'single_choice',
   MultipleChoice = 'multiple_choice',
   Slider = 'slider',
-  TextInput = 'text_input',
 }
 
 export interface AnswerOption {

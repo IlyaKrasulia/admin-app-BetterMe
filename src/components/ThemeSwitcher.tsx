@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { Sun, Moon, Monitor } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
 import { useAppTheme } from "@shared/theme/ThemeProvider";
 
 export function ThemeSwitcher() {
@@ -20,13 +20,6 @@ export function ThemeSwitcher() {
         title="Dark"
       >
         <Moon size={14} />
-      </Option>
-      <Option
-        $active={mode === "system"}
-        onClick={() => setMode("system")}
-        title="System"
-      >
-        <Monitor size={14} />
       </Option>
     </Wrapper>
   );

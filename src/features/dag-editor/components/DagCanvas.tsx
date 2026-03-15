@@ -45,14 +45,14 @@ const defaultEdgeOptions = {
 };
 
 // ─── Node data factories ──────────────────────────────────────────────────────
-function createNodeData(type: NodeType): DagNodeData {
+function createNodeData(type: NodeType, answerType: AnswerType): DagNodeData {
   switch (type) {
     case NodeType.Question:
       return {
         type: NodeType.Question,
         questionText: "New question",
         attribute: AttributeKey.Goal,
-        answerType: AnswerType.SingleChoice,
+        answerType,
         options: [],
       } satisfies QuestionNodeData;
     case NodeType.Info:
@@ -131,7 +131,7 @@ export function DagCanvas() {
         id: crypto.randomUUID(),
         type,
         position,
-        data: createNodeData(type),
+        data: createNodeData(type, AnswerType.SingleChoice),
       };
 
       addNode(newNode);

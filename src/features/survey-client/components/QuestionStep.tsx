@@ -150,31 +150,6 @@ export function QuestionStep({ data, onAnswer }: QuestionStepProps) {
     if (textValue.trim()) onAnswer(textValue.trim())
   }
 
-  // ─── Text input variant ──────────────────────────────────────────────────────
-  if (answerType === AnswerType.TextInput) {
-    return (
-      <Wrapper>
-        {mediaUrl && <QuestionMedia src={mediaUrl} alt={questionText} />}
-        <QuestionText>{questionText}</QuestionText>
-        <TextInput
-          placeholder="Type your answer…"
-          value={textValue}
-          onChange={(e) => setTextValue(e.target.value)}
-          autoFocus
-        />
-        <Button
-          fullWidth
-          size="lg"
-          disabled={!textValue.trim()}
-          icon={<ChevronRight size={18} />}
-          onClick={handleTextSubmit}
-        >
-          Continue
-        </Button>
-      </Wrapper>
-    )
-  }
-
   // ─── Choice variants (SingleChoice, MultipleChoice, Slider-as-options) ───────
   const isMulti = answerType === AnswerType.MultipleChoice
 
