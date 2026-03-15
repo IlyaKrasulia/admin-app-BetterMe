@@ -20,12 +20,13 @@ beforeEach(() => {
 
 const currentNode = {
   id: 'n1',
-  type: 'question' as const,
+  type: 'Question' as const,
   attributeKey: 'goal',
   title: "What's your main goal?",
   description: null,
   mediaUrl: null,
   options: [],
+  offers: [],
 }
 
 describe('quizApi', () => {
@@ -33,8 +34,10 @@ describe('quizApi', () => {
     const response = {
       sessionId: 'sess1',
       flowId: 'f1',
+      status: 'InProgress' as const,
+      startedAt: '2026-03-15T00:00:00Z',
+      completedAt: null,
       currentNode,
-      progress: { answeredCount: 0 },
     }
     mockPost.mockResolvedValueOnce({ data: response })
     const result = await quizApi.startSession({ flowId: 'f1' })
@@ -45,8 +48,11 @@ describe('quizApi', () => {
   it('submitAnswer calls POST /api/quiz/sessions/{sessionId}/answers', async () => {
     const response = {
       sessionId: 'sess1',
+      flowId: 'f1',
+      status: 'InProgress' as const,
+      startedAt: '2026-03-15T00:00:00Z',
+      completedAt: null,
       currentNode,
-      progress: { answeredCount: 1 },
     }
     mockPost.mockResolvedValueOnce({ data: response })
     const result = await quizApi.submitAnswer('sess1', {
@@ -57,35 +63,38 @@ describe('quizApi', () => {
       nodeId: 'n1',
       value: 'weight_loss',
     })
-    expect(result.progress.answeredCount).toBe(1)
+    expect(result.status).toBe('InProgress')
   })
 
   it('getSession calls GET /api/quiz/sessions/{sessionId}', async () => {
     const response = {
       sessionId: 'sess1',
       flowId: 'f1',
-      status: 'in_progress' as const,
+      status: 'InProgress' as const,
+      startedAt: '2026-03-15T00:00:00Z',
+      completedAt: null,
       currentNode,
       answers: [],
-      offers: null,
-      progress: { answeredCount: 0 },
     }
     mockGet.mockResolvedValueOnce({ data: response })
     const result = await quizApi.getSession('sess1')
     expect(mockGet).toHaveBeenCalledWith('/api/quiz/sessions/sess1')
-    expect(result.status).toBe('in_progress')
+    expect(result.status).toBe('InProgress')
   })
 
   it('goBack calls POST /api/quiz/sessions/{sessionId}/back', async () => {
     const response = {
       sessionId: 'sess1',
+      flowId: 'f1',
+      status: 'InProgress' as const,
+      startedAt: '2026-03-15T00:00:00Z',
+      completedAt: null,
       currentNode,
-      progress: { answeredCount: 0 },
     }
     mockPost.mockResolvedValueOnce({ data: response })
     const result = await quizApi.goBack('sess1')
     expect(mockPost).toHaveBeenCalledWith('/api/quiz/sessions/sess1/back')
-    expect(result.progress.answeredCount).toBe(0)
+    expect(result.currentNode.id).toBe('n1')
   })
 
   it('recordConversion calls POST /api/quiz/sessions/{sessionId}/convert', async () => {

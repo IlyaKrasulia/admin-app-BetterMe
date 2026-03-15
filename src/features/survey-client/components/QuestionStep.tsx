@@ -105,10 +105,18 @@ const HintText = styled.p`
   text-align: center;
 `
 
+const QuestionMedia = styled.img`
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: ${({ theme }) => theme.radii.md};
+  object-fit: contain;
+  align-self: center;
+`
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface QuestionStepProps {
-  data: QuestionNodeData
+  data: QuestionNodeData & { mediaUrl?: string | null }
   onAnswer: (value: string | string[]) => void
 }
 
@@ -116,7 +124,7 @@ export function QuestionStep({ data, onAnswer }: QuestionStepProps) {
   const [selected, setSelected] = useState<string[]>([])
   const [textValue, setTextValue] = useState('')
 
-  const { questionText, answerType, options } = data
+  const { questionText, answerType, options, mediaUrl } = data
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -146,6 +154,7 @@ export function QuestionStep({ data, onAnswer }: QuestionStepProps) {
   if (answerType === AnswerType.TextInput) {
     return (
       <Wrapper>
+        {mediaUrl && <QuestionMedia src={mediaUrl} alt={questionText} />}
         <QuestionText>{questionText}</QuestionText>
         <TextInput
           placeholder="Type your answer…"
@@ -171,6 +180,7 @@ export function QuestionStep({ data, onAnswer }: QuestionStepProps) {
 
   return (
     <Wrapper>
+      {mediaUrl && <QuestionMedia src={mediaUrl} alt={questionText} />}
       <QuestionText>{questionText}</QuestionText>
 
       {isMulti && (
